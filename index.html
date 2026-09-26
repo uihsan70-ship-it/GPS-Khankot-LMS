@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GPS Khankot — LMS</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a56db">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+.offline-banner{background:#fff4cc;color:#7a5b00;font-size:12px;text-align:center;padding:6px;border-radius:8px;margin-bottom:10px;display:none;}
+.offline-banner.show{display:block;}
+.namebar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--sub);margin-bottom:6px;}
+:root{
+  --bg:#f5f8fd; --card:#ffffff; --line:#dbe6f5; --text:#122036; --sub:#5b6f8a;
+  --accent:#1a56db; --accent2:#f6c945; --danger:#e2483d; --ok:#1fa971; --radius:12px;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0c1420; --card:#111c2c; --line:#1f3350; --text:#eef4ff; --sub:#8ba3c2; }
+}
+:root[data-theme="dark"]{ --bg:#0c1420; --card:#111c2c; --line:#1f3350; --text:#eef4ff; --sub:#8ba3c2; }
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:800px;margin:0 auto;padding:16px 14px 50px;}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:2px;}
+.brand .badge{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:18px;}
+h1{font-size:19px;margin:0;}
+.sub{color:var(--sub);font-size:12.5px;margin:2px 0 14px;}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px;}
+.tab{flex:0 0 auto;padding:8px 12px;border-radius:20px;background:var(--card);border:1px solid var(--line);color:var(--sub);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.card.class-card{border-top:3px solid var(--accent2);}
+h2{font-size:14px;margin:0 0 10px;}
+label{display:block;font-size:11.5px;color:var(--sub);margin:8px 0 3px;}
+input,select,textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:14px;font-family:inherit;}
+textarea{resize:vertical;min-height:50px;}
+button{cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:13px;padding:9px 14px;}
+.btn-primary{background:var(--accent);color:#fff;margin-top:10px;}
+.btn-accent2{background:var(--accent2);color:#3a2c00;margin-top:10px;}
+.btn-sm{background:var(--line);color:var(--text);padding:5px 9px;font-size:11.5px;}
+.btn-danger{background:var(--danger);color:#fff;padding:5px 9px;font-size:11.5px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;}
+.row > *{flex:1;min-width:120px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);}
+th{color:var(--sub);font-size:11px;text-transform:uppercase;letter-spacing:.3px;}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+.pill-ok{background:rgba(31,169,113,0.15);color:var(--ok);}
+.pill-bad{background:rgba(226,72,61,0.15);color:var(--danger);}
+.pill-note{background:rgba(26,86,219,0.12);color:var(--accent);}
+.pill-yellow{background:rgba(246,201,69,0.25);color:#7a5b00;}
+.studlink{color:var(--accent);cursor:pointer;font-weight:600;}
+.msg{border-left:3px solid var(--accent);padding:6px 10px;margin-bottom:6px;background:rgba(26,86,219,0.05);border-radius:0 8px 8px 0;font-size:13px;}
+.msg .meta{color:var(--sub);font-size:10.5px;margin-top:2px;}
+.hwcard{border-left:3px solid var(--accent2);padding:8px 10px;margin-bottom:8px;background:rgba(246,201,69,0.08);border-radius:0 8px 8px 0;}
+.hwcard .meta{color:var(--sub);font-size:11px;margin-top:4px;}
+.notice{border-left:3px solid var(--accent);padding:8px 10px;margin-bottom:8px;background:rgba(26,86,219,0.05);border-radius:0 8px 8px 0;}
+.timetable{border-collapse:collapse;width:100%;font-size:12px;}
+.timetable th,.timetable td{border:1px solid var(--line);padding:4px;text-align:center;}
+.timetable input{font-size:11px;padding:4px;text-align:center;}
+.classgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.classgrid .num{font-size:26px;font-weight:800;color:var(--accent);}
+.empty{color:var(--sub);font-size:13px;text-align:center;padding:16px 0;}
+.error{color:var(--danger);font-size:13px;}
+select{background:var(--card);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="badge">🏫</div><h1>GPS Khankot — LMS</h1></div>
+  <p class="sub">Nursery to Class 5 — students, attendance, grades, fees, homework, notices & timetable.</p>
+  <div class="offline-banner" id="offlineBanner">You're offline — changes are saved on this device and will sync automatically when you're back online.</div>
+  <div class="namebar"><span>Signed in as: <b id="userLabel"></b></span></div>
+  <div id="root"><div class="empty">Loading…</div></div>
+</div>
+<!-- Firebase (your own project — independent of Claude) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+// ====== YOUR FIREBASE PROJECT CONFIG ======
+const firebaseConfig = {
+  apiKey: "AIzaSyD3kc5RKyQMVtyS9yDWAJvdRxt3fO9wxDo",
+  authDomain: "gps-khankot-lms.firebaseapp.com",
+  projectId: "gps-khankot-lms",
+  storageBucket: "gps-khankot-lms.firebasestorage.app",
+  messagingSenderId: "762201981873",
+  appId: "1:762201981873:web:9e2d3733fcbdf96bebf390"
+};
+firebase.initializeApp(firebaseConfig);
+const firestore = firebase.firestore();
+firestore.enablePersistence({ synchronizeTabs: true }).catch(()=>{ /* persistence unavailable in this browser/tab — app still works online */ });
+
+const CURRENT_USER = (function(){
+  let n = localStorage.getItem("gps_lms_user");
+  if(!n){ n = prompt("Your name (for the activity log):") || "Staff"; localStorage.setItem("gps_lms_user", n); }
+  return n;
+})();
+
+async function logActivity(action, target, summary){
+  try{
+    await firestore.collection("activityLog").add({ user: CURRENT_USER, action, target, summary: (summary||"").toString().slice(0,140), at: Date.now() });
+  }catch(e){}
+}
+
+// Firebase-backed shim matching the same collection/doc API used throughout this app
+const db = {
+  collection(name){
+    return {
+      onSnapshot(cb){
+        return firestore.collection(name).onSnapshot(snap=>{
+          cb({ docs: snap.docs.map(d=>({ id:d.id, data:d.data() })) });
+        });
+      },
+      async add(obj){
+        const ref = await firestore.collection(name).add(obj);
+        logActivity("add", name, obj && (obj.name||obj.title||obj.subject||""));
+        return ref;
+      }
+    };
+  },
+  doc(path){
+    const ref = firestore.doc(path);
+    return {
+      onSnapshot(cb){
+        return ref.onSnapshot(snap=>{
+          cb({ exists: snap.exists, data: snap.exists ? snap.data() : undefined, id: snap.id });
+        });
+      },
+      async set(obj){ await ref.set(obj, {merge:false}); logActivity("set", path, ""); },
+      async update(obj){ await ref.update(obj); logActivity("update", path, Object.keys(obj).join(",")); },
+      async delete(){ await ref.delete(); logActivity("delete", path, ""); }
+    };
+  }
+};
+
+window.addEventListener('unhandledrejection', function(e){
+  const reason = e && e.reason ? (e.reason.message || e.reason.code || JSON.stringify(e.reason)) : "unknown error";
+  alert("Save failed: " + reason);
+});
+
+window.addEventListener("online", ()=>{ const b=document.getElementById("offlineBanner"); if(b) b.classList.remove("show"); });
+window.addEventListener("offline", ()=>{ const b=document.getElementById("offlineBanner"); if(b) b.classList.add("show"); });
+
+if("serviceWorker" in navigator){ window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{})); }
+
+const CLASS_LIST = ["Nursery","LKG","UKG","Class 1","Class 2","Class 3","Class 4","Class 5"];
+let students=[], homework=[], notices=[], activityLog=[], tab="classes", selectedStudent=null, ttDoc={grid:{}}, attDate=todayStr(), classFilter="";
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function render(html){ document.getElementById("root").innerHTML = html; }
+function esc(s){ return (s||"").toString().replace(/[<>&]/g, c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])); }
+function classOptions(sel){ return CLASS_LIST.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join(""); }
+
+window.addEventListener('unhandledrejection', function(e){
+  const reason = e && e.reason ? (e.reason.message || e.reason.code || JSON.stringify(e.reason)) : "unknown error";
+  alert("Save failed: " + reason + "\n\nMost common cause: you need edit access to this page (be signed in to claude.ai and added as an editor/contributor), not just a viewer link.");
+});
+
+async function init(){
+  render(`<div class="empty">Connecting…</div>`);
+  db.collection("activityLog").onSnapshot(snap=>{
+    activityLog=(snap.docs||[]).map(d=>({id:d.id, ...d.data})).sort((a,b)=>(b.at||0)-(a.at||0));
+    if(tab==="activity") renderTabs();
+  });
+  db.collection("students").onSnapshot(snap=>{
+    students = (snap.docs||[]).map(d=>({id:d.id, ...d.data}));
+    if(selectedStudent && !students.find(s=>s.id===selectedStudent)) selectedStudent=null;
+    renderTabs();
+  });
+  db.collection("homework").onSnapshot(snap=>{
+    homework=(snap.docs||[]).map(d=>({id:d.id, ...d.data})).sort((a,b)=>(b.postedAt||0)-(a.postedAt||0));
+    if(tab==="homework") renderTabs();
+  });
+  db.collection("notices").onSnapshot(snap=>{
+    notices=(snap.docs||[]).map(d=>({id:d.id, ...d.data})).sort((a,b)=>(b.postedAt||0)-(a.postedAt||0));
+    if(tab==="notices") renderTabs();
+  });
+  db.doc("timetable/main").onSnapshot(snap=>{
+    ttDoc = (snap && snap.exists) ? snap.data : {grid:{}};
+    if(tab==="timetable") renderTabs();
+  });
+  renderTabs();
+}
+
+function setTab(t){ tab=t; renderTabs(); }
+
+function renderTabs(){
+  const tabs=[["classes","Classes"],["students","Students"],["attendance","Attendance"],["grades","Grades"],["fees","Fees"],["homework","Homework"],["notices","Notices"],["messages","Messages"],["timetable","Timetable"],["activity","Activity"]];
+  render(`
+    <div class="tabs">${tabs.map(([k,l])=>`<div class="tab ${tab===k?'active':''}" data-tab="${k}">${l}</div>`).join("")}</div>
+    <div id="panel"></div>
+  `);
+  document.querySelectorAll(".tab").forEach(el=>el.onclick=()=>setTab(el.dataset.tab));
+  const panel = document.getElementById("panel");
+  const views = {classes:viewClasses, students:viewStudents, attendance:viewAttendance, grades:viewGrades, fees:viewFees, homework:viewHomework, notices:viewNotices, messages:viewMessages, timetable:viewTimetable, activity:viewActivity};
+  panel.innerHTML = views[tab]();
+  wireTab();
+}
+
+// ---------------- CLASSES OVERVIEW ----------------
+function viewClasses(){
+  const cards = CLASS_LIST.map(c=>{
+    const list = students.filter(s=>s.className===c);
+    const present = list.filter(s=>(s.attendance||{})[attDate]==="present").length;
+    return `<div class="card class-card">
+      <h2>${c}</h2>
+      <div class="num">${list.length}</div>
+      <div class="sub" style="margin-bottom:8px;">student(s)</div>
+      <div class="sub">Today: <span class="pill pill-ok">${present} present</span></div>
+      <button class="btn-sm" style="margin-top:8px;" data-viewclass="${c}">View roster & attendance →</button>
+    </div>`;
+  }).join("");
+  return `<div class="classgrid">${cards}</div>`;
+}
+
+// ---------------- STUDENTS ----------------
+function viewStudents(){
+  const list = classFilter ? students.filter(s=>s.className===classFilter) : students;
+  const rows = list.map(s=>`
+    <tr>
+      <td><span class="studlink" data-open="${s.id}">${esc(s.name)}</span></td>
+      <td>${esc(s.className||"-")}</td>
+      <td>${s.notes ? `<span class="pill pill-note">Support notes</span>` : ""}</td>
+      <td>${esc(s.guardianContact||"-")}</td>
+      <td><button class="btn-danger" data-del="${s.id}">Remove</button></td>
+    </tr>`).join("");
+  return `
+    <div class="card">
+      <h2>Add student</h2>
+      <div class="row">
+        <div><label>Full name</label><input id="s_name"></div>
+        <div><label>Class</label><select id="s_class">${classOptions()}</select></div>
+      </div>
+      <label>Guardian contact (phone/email)</label><input id="s_contact">
+      <label>Support / special needs notes (optional)</label>
+      <textarea id="s_notes" placeholder="e.g. needs extra reading time, uses hearing aid, IEP details..."></textarea>
+      <button class="btn-primary" id="addStudentBtn">Add student</button>
+    </div>
+    <div class="card">
+      <div class="row"><div><label>Filter by class</label><select id="stuClassFilter"><option value="">All classes</option>${classOptions(classFilter)}</select></div></div>
+      <h2>Roster (${list.length})</h2>
+      ${list.length ? `<table><tr><th>Name</th><th>Class</th><th>Notes</th><th>Guardian</th><th></th></tr>${rows}</table>` : `<div class="empty">No students in this view yet.</div>`}
+    </div>
+  `;
+}
+
+async function addStudent(){
+  const name=document.getElementById("s_name").value.trim();
+  if(!name) return;
+  const className=document.getElementById("s_class").value;
+  const guardianContact=document.getElementById("s_contact").value.trim();
+  const notes=document.getElementById("s_notes").value.trim();
+  await db.collection("students").add({name, className, guardianContact, notes, fees:{amount:0,paid:false}, grades:{}, attendance:{}, messages:[]});
+}
+
+// ---------------- ATTENDANCE ----------------
+function viewAttendance(){
+  const list = students.filter(s=>!classFilter || s.className===classFilter);
+  const rows = list.map(s=>{
+    const status = (s.attendance||{})[attDate] || "unmarked";
+    return `<tr><td>${esc(s.name)}</td><td>${esc(s.className||"-")}</td><td>
+      <button class="btn-sm" data-att="${s.id}|present" style="${status==='present'?'background:var(--ok);color:#fff;':''}">Present</button>
+      <button class="btn-sm" data-att="${s.id}|absent" style="${status==='absent'?'background:var(--danger);color:#fff;':''}">Absent</button>
+    </td></tr>`;
+  }).join("");
+  return `
+    <div class="card">
+      <div class="row">
+        <div><label>Date</label><input type="date" id="attDatePick" value="${attDate}"></div>
+        <div><label>Class</label><select id="attClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Mark attendance — ${attDate}</h2>
+      ${list.length ? `<table><tr><th>Name</th><th>Class</th><th>Status</th></tr>${rows}</table>` : `<div class="empty">No students in this class yet.</div>`}
+    </div>
+  `;
+}
+
+// ---------------- GRADES ----------------
+function viewGrades(){
+  const list = classFilter ? students.filter(s=>s.className===classFilter) : students;
+  const opts = list.map(s=>`<option value="${s.id}" ${selectedStudent===s.id?'selected':''}>${esc(s.name)} (${esc(s.className||'-')})</option>`).join("");
+  const stu = students.find(s=>s.id===selectedStudent);
+  let body = `<div class="empty">Select a student to view/edit grades.</div>`;
+  if(stu){
+    const g = stu.grades||{};
+    const rows = Object.keys(g).map(subj=>`<tr><td>${esc(subj)}</td><td>${esc(g[subj])}</td><td><button class="btn-danger" data-delgrade="${esc(subj)}">Remove</button></td></tr>`).join("");
+    body = `
+      <table><tr><th>Subject</th><th>Grade</th><th></th></tr>${rows || `<tr><td colspan="3" class="empty">No grades recorded yet.</td></tr>`}</table>
+      <div class="row" style="margin-top:10px;">
+        <div><label>Subject</label><input id="g_subject" placeholder="e.g. Math"></div>
+        <div><label>Grade / score</label><input id="g_value" placeholder="e.g. A or 85%"></div>
+      </div>
+      <button class="btn-primary" id="addGradeBtn">Save grade</button>
+    `;
+  }
+  return `
+    <div class="card"><div class="row">
+      <div><label>Class</label><select id="gradeClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div>
+      <div><label>Student</label><select id="gradeStudentPick"><option value="">-- choose --</option>${opts}</select></div>
+    </div></div>
+    <div class="card"><h2>Report card ${stu?`— ${esc(stu.name)}`:""}</h2>${body}</div>
+  `;
+}
+
+// ---------------- FEES ----------------
+function viewFees(){
+  const list = classFilter ? students.filter(s=>s.className===classFilter) : students;
+  const rows = list.map(s=>{
+    const f = s.fees || {amount:0,paid:false};
+    return `<tr>
+      <td>${esc(s.name)}</td>
+      <td>${esc(s.className||"-")}</td>
+      <td><input type="number" data-feeamt="${s.id}" value="${f.amount||0}" style="width:80px;"></td>
+      <td>${f.paid ? `<span class="pill pill-ok">Paid</span>` : `<span class="pill pill-bad">Due</span>`}</td>
+      <td><button class="btn-sm" data-feepaid="${s.id}|${!f.paid}">${f.paid ? "Mark unpaid" : "Mark paid"}</button></td>
+    </tr>`;
+  }).join("");
+  return `
+    <div class="card"><div class="row"><div><label>Class</label><select id="feeClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div></div></div>
+    <div class="card">
+      <h2>Fee tracker</h2>
+      ${list.length ? `<table><tr><th>Name</th><th>Class</th><th>Amount</th><th>Status</th><th></th></tr>${rows}</table>` : `<div class="empty">No students in this view yet.</div>`}
+    </div>
+  `;
+}
+
+// ---------------- HOMEWORK ----------------
+function viewHomework(){
+  const list = classFilter ? homework.filter(h=>h.className===classFilter) : homework;
+  const items = list.map(h=>`<div class="hwcard">
+      <b>${esc(h.className)} — ${esc(h.subject)}</b>
+      <div>${esc(h.description)}</div>
+      <div class="meta">Due: ${esc(h.dueDate||"-")} · Posted ${new Date(h.postedAt).toLocaleDateString()}
+        <button class="btn-danger" style="margin-left:8px;" data-delhw="${h.id}">Delete</button>
+      </div>
+    </div>`).join("");
+  return `
+    <div class="card">
+      <h2>Post homework / assignment</h2>
+      <div class="row">
+        <div><label>Class</label><select id="hw_class">${classOptions()}</select></div>
+        <div><label>Subject</label><input id="hw_subject" placeholder="e.g. Science"></div>
+      </div>
+      <label>Description</label><textarea id="hw_desc" placeholder="e.g. Complete worksheet page 12, questions 1-5"></textarea>
+      <label>Due date</label><input type="date" id="hw_due">
+      <button class="btn-accent2" id="postHwBtn">Post homework</button>
+    </div>
+    <div class="card">
+      <div class="row"><div><label>Filter by class</label><select id="hwClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div></div>
+      <h2>Assigned homework</h2>
+      ${items || `<div class="empty">No homework posted yet.</div>`}
+    </div>
+  `;
+}
+
+// ---------------- NOTICES ----------------
+function viewNotices(){
+  const items = notices.map(n=>`<div class="notice">
+      <b>${esc(n.title)}</b>
+      <div>${esc(n.message)}</div>
+      <div class="meta">${new Date(n.postedAt).toLocaleString()} <button class="btn-danger" style="margin-left:8px;" data-delnotice="${n.id}">Delete</button></div>
+    </div>`).join("");
+  return `
+    <div class="card">
+      <h2>Post a school notice</h2>
+      <label>Title</label><input id="nt_title" placeholder="e.g. School closed Friday">
+      <label>Message</label><textarea id="nt_msg"></textarea>
+      <button class="btn-primary" id="postNoticeBtn">Post notice</button>
+    </div>
+    <div class="card"><h2>All notices</h2>${items || `<div class="empty">No notices posted yet.</div>`}</div>
+  `;
+}
+
+// ---------------- MESSAGES ----------------
+function viewMessages(){
+  const opts = students.map(s=>`<option value="${s.id}" ${selectedStudent===s.id?'selected':''}>${esc(s.name)}</option>`).join("");
+  const stu = students.find(s=>s.id===selectedStudent);
+  let body = `<div class="empty">Select a student to message their guardian.</div>`;
+  if(stu){
+    const msgs=(stu.messages||[]).slice().reverse();
+    body = `
+      ${msgs.length ? msgs.map(m=>`<div class="msg">${esc(m.text)}<div class="meta">${new Date(m.at).toLocaleString()}</div></div>`).join("") : `<div class="empty">No messages yet.</div>`}
+      <label>New message to ${esc(stu.guardianContact||"guardian")}</label>
+      <textarea id="msgText" placeholder="e.g. Your child did great in today's reading assessment."></textarea>
+      <button class="btn-primary" id="sendMsgBtn">Log message sent</button>
+    `;
+  }
+  return `
+    <div class="card"><label>Student</label><select id="msgStudentPick"><option value="">-- choose --</option>${opts}</select></div>
+    <div class="card"><h2>Parent communication ${stu?`— ${esc(stu.name)}`:""}</h2>${body}</div>
+  `;
+}
+
+// ---------------- TIMETABLE ----------------
+function viewTimetable(){
+  const days=["Mon","Tue","Wed","Thu","Fri"];
+  const periods=[1,2,3,4,5,6];
+  const grid = ttDoc.grid || {};
+  const cls = classFilter || CLASS_LIST[0];
+  let head = `<tr><th>Period</th>${days.map(d=>`<th>${d}</th>`).join("")}</tr>`;
+  let body = periods.map(p=>`<tr><td>${p}</td>${days.map(d=>{
+    const key=cls+"_"+d+"_"+p; return `<td><input data-tt="${key}" value="${esc(grid[key]||"")}" placeholder="Subject"></td>`;
+  }).join("")}</tr>`).join("");
+  return `
+    <div class="card"><div class="row"><div><label>Class</label><select id="ttClassPick">${classOptions(cls)}</select></div></div></div>
+    <div class="card"><h2>Weekly timetable — ${cls}</h2><table class="timetable">${head}${body}</table><button class="btn-primary" id="saveTTBtn">Save timetable</button></div>
+  `;
+}
+
+// ---------------- ACTIVITY / MONITORING ----------------
+function viewActivity(){
+  const byUser = {};
+  activityLog.forEach(a=>{ byUser[a.user] = Math.max(byUser[a.user]||0, a.at||0); });
+  const users = Object.keys(byUser).sort((a,b)=>byUser[b]-byUser[a]);
+  const userCards = users.map(u=>`<div class="card class-card" style="display:inline-block;min-width:150px;margin-right:8px;">
+      <b>${esc(u)}</b><div class="sub">Last active: ${new Date(byUser[u]).toLocaleString()}</div>
+    </div>`).join("");
+  const rows = activityLog.slice(0,80).map(a=>`<tr>
+      <td>${new Date(a.at).toLocaleString()}</td><td>${esc(a.user)}</td><td>${esc(a.action)}</td><td>${esc(a.target)}</td><td>${esc(a.summary||"")}</td>
+    </tr>`).join("");
+  return `
+    <div class="card"><h2>Staff activity</h2>${userCards || `<div class="empty">No activity yet.</div>`}</div>
+    <div class="card"><h2>Recent changes (${activityLog.length} total logged)</h2>
+      ${rows ? `<table><tr><th>When</th><th>Who</th><th>Action</th><th>Where</th><th>Detail</th></tr>${rows}</table>` : `<div class="empty">Nothing logged yet.</div>`}
+    </div>
+  `;
+}
+
+// ---------------- WIRING ----------------
+function wireTab(){
+  if(tab==="classes"){
+    document.querySelectorAll("[data-viewclass]").forEach(el=>el.onclick=()=>{ classFilter=el.dataset.viewclass; setTab("students"); });
+  }
+  if(tab==="students"){
+    document.getElementById("addStudentBtn").onclick = addStudent;
+    document.getElementById("stuClassFilter").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
+    document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>{ selectedStudent=el.dataset.open; setTab("grades"); });
+    document.querySelectorAll("[data-del]").forEach(el=>el.onclick=async()=>{ await db.doc("students/"+el.dataset.del).delete(); });
+  }
+  if(tab==="attendance"){
+    document.getElementById("attDatePick").onchange = e=>{ attDate=e.target.value; renderTabs(); };
+    document.getElementById("attClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
+    document.querySelectorAll("[data-att]").forEach(el=>el.onclick=async()=>{
+      const [id,status]=el.dataset.att.split("|");
+      const stu=students.find(s=>s.id===id);
+      const attendance={...(stu.attendance||{}), [attDate]:status};
+      await db.doc("students/"+id).update({attendance});
+    });
+  }
+  if(tab==="grades"){
+    document.getElementById("gradeClassPick").onchange = e=>{ classFilter=e.target.value; selectedStudent=null; renderTabs(); };
+    document.getElementById("gradeStudentPick").onchange = e=>{ selectedStudent=e.target.value||null; renderTabs(); };
+    const addBtn=document.getElementById("addGradeBtn");
+    if(addBtn) addBtn.onclick=async()=>{
+      const subj=document.getElementById("g_subject").value.trim();
+      const val=document.getElementById("g_value").value.trim();
+      if(!subj||!val) return;
+      const stu=students.find(s=>s.id===selectedStudent);
+      const grades={...(stu.grades||{}), [subj]:val};
+      await db.doc("students/"+selectedStudent).update({grades});
+    };
+    document.querySelectorAll("[data-delgrade]").forEach(el=>el.onclick=async()=>{
+      const stu=students.find(s=>s.id===selectedStudent);
+      const grades={...(stu.grades||{})}; delete grades[el.dataset.delgrade];
+      await db.doc("students/"+selectedStudent).update({grades});
+    });
+  }
+  if(tab==="fees"){
+    document.getElementById("feeClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
+    document.querySelectorAll("[data-feeamt]").forEach(el=>el.onchange=async()=>{
+      const stu=students.find(s=>s.id===el.dataset.feeamt);
+      const fees={...(stu.fees||{}), amount:parseFloat(el.value)||0};
+      await db.doc("students/"+el.dataset.feeamt).update({fees});
+    });
+    document.querySelectorAll("[data-feepaid]").forEach(el=>el.onclick=async()=>{
+      const [id,paidStr]=el.dataset.feepaid.split("|");
+      const stu=students.find(s=>s.id===id);
+      const fees={...(stu.fees||{}), paid: paidStr==="true"};
+      await db.doc("students/"+id).update({fees});
+    });
+  }
+  if(tab==="homework"){
+    document.getElementById("hwClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
+    document.getElementById("postHwBtn").onclick=async()=>{
+      const className=document.getElementById("hw_class").value;
+      const subject=document.getElementById("hw_subject").value.trim();
+      const description=document.getElementById("hw_desc").value.trim();
+      const dueDate=document.getElementById("hw_due").value;
+      if(!subject||!description) return;
+      await db.collection("homework").add({className, subject, description, dueDate, postedAt:Date.now()});
+    };
+    document.querySelectorAll("[data-delhw]").forEach(el=>el.onclick=async()=>{ await db.doc("homework/"+el.dataset.delhw).delete(); });
+  }
+  if(tab==="notices"){
+    document.getElementById("postNoticeBtn").onclick=async()=>{
+      const title=document.getElementById("nt_title").value.trim();
+      const message=document.getElementById("nt_msg").value.trim();
+      if(!title||!message) return;
+      await db.collection("notices").add({title, message, postedAt:Date.now()});
+    };
+    document.querySelectorAll("[data-delnotice]").forEach(el=>el.onclick=async()=>{ await db.doc("notices/"+el.dataset.delnotice).delete(); });
+  }
+  if(tab==="messages"){
+    document.getElementById("msgStudentPick").onchange = e=>{ selectedStudent=e.target.value||null; renderTabs(); };
+    const sendBtn=document.getElementById("sendMsgBtn");
+    if(sendBtn) sendBtn.onclick=async()=>{
+      const text=document.getElementById("msgText").value.trim();
+      if(!text) return;
+      const stu=students.find(s=>s.id===selectedStudent);
+      const messages=[...(stu.messages||[]), {text, at:Date.now()}];
+      await db.doc("students/"+selectedStudent).update({messages});
+    };
+  }
+  if(tab==="timetable"){
+    document.getElementById("ttClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
+    document.getElementById("saveTTBtn").onclick=async()=>{
+      const grid={...(ttDoc.grid||{})};
+      document.querySelectorAll("[data-tt]").forEach(el=>{ if(el.value.trim()) grid[el.dataset.tt]=el.value.trim(); else delete grid[el.dataset.tt]; });
+      await db.doc("timetable/main").set({grid});
+    };
+  }
+}
+
+document.getElementById("userLabel").textContent = CURRENT_USER;
+if(!navigator.onLine) document.getElementById("offlineBanner").classList.add("show");
+init();
+</script>
+</body>
+</html>
