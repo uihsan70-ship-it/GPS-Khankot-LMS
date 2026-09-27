@@ -124,7 +124,6 @@ select{background:var(--card);}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script>
-// ====== YOUR FIREBASE PROJECT CONFIG ======
 const firebaseConfig = {
   apiKey: "AIzaSyD3kc5RKyQMVtyS9yDWAJvdRxt3fO9wxDo",
   authDomain: "gps-khankot-lms.firebaseapp.com",
@@ -135,7 +134,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const firestore = firebase.firestore();
-firestore.enablePersistence({ synchronizeTabs: true }).catch(()=>{ /* persistence unavailable in this browser/tab — app still works online */ });
+firestore.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
 
 const CURRENT_USER = (function(){
   let n = localStorage.getItem("gps_lms_user");
@@ -479,6 +478,11 @@ function viewActivity(){
 function viewBackup(){
   return `
     <div class="card">
+      <h2>Load demo data (for testing)</h2>
+      <p class="sub">Adds 8 sample students (one per class) with attendance, grades, fees, homework, notices, a parent message, and a timetable — so you can click through every tab and see it working before using real records.</p>
+      <button class="btn-accent2" id="seedDemoBtn">Load demo data</button>
+    </div>
+    <div class="card">
       <h2>Download a full backup</h2>
       <p class="sub">Saves every student record, homework, notices, timetable, and activity log as one file on this device. Nothing on the live app is changed — this is just a safety copy. Do this weekly (or before any big change) and keep the file in Google Drive, email, or a USB drive.</p>
       <button class="btn-primary" id="downloadBackupBtn">Download backup (.json)</button>
@@ -492,29 +496,40 @@ function viewBackup(){
   `;
 }
 
-async function downloadFullBackup(){
-  const btn = document.getElementById("downloadBackupBtn");
-  btn.textContent = "Preparing backup…";
-  const hwSnap = await firestore.collection("homework").get();
-  const ntSnap = await firestore.collection("notices").get();
-  const logSnap = await firestore.collection("activityLog").get();
-  const ttSnap = await firestore.doc("timetable/main").get();
-  const backup = {
-    exportedAt: new Date().toISOString(),
-    students: students.map(({id, ...rest})=>({id, ...rest})),
-    homework: hwSnap.docs.map(d=>({id:d.id, ...d.data()})),
-    notices: ntSnap.docs.map(d=>({id:d.id, ...d.data()})),
-    activityLog: logSnap.docs.map(d=>({id:d.id, ...d.data()})),
-    timetable: ttSnap.exists ? ttSnap.data() : {}
-  };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "gps-khankot-backup-" + todayStr() + ".json";
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-  btn.textContent = "Download backup (.json)";
+async function seedDemoData(){
+  const btn = document.getElementById("seedDemoBtn");
+  btn.textContent = "Loading demo data…";
+  const today = todayStr();
+  const demoStudents = [
+    {name:"Ayesha Khan", className:"Nursery", guardianContact:"0300-1234567", notes:"", fees:{amount:1500,paid:true}, grades:{}, attendance:{[today]:"present"}, messages:[]},
+    {name:"Bilal Ahmed", className:"LKG", guardianContact:"0301-2345678", notes:"", fees:{amount:1500,paid:false}, grades:{}, attendance:{[today]:"present"}, messages:[]},
+    {name:"Sara Malik", className:"UKG", guardianContact:"0302-3456789", notes:"", fees:{amount:1800,paid:true}, grades:{}, attendance:{[today]:"absent"}, messages:[]},
+    {name:"Hamza Iqbal", className:"Class 1", guardianContact:"0303-4567890", notes:"", fees:{amount:2000,paid:true}, grades:{Math:"A", English:"B+"}, attendance:{[today]:"present"}, messages:[]},
+    {name:"Zainab Tariq", className:"Class 2", guardianContact:"0304-5678901", notes:"", fees:{amount:2000,paid:false}, grades:{}, attendance:{[today]:"present"}, messages:[]},
+    {name:"Ali Raza", className:"Class 3", guardianContact:"0305-6789012", notes:"Needs extra reading time; mild hearing difficulty, sits near the front", fees:{amount:2200,paid:true}, grades:{}, attendance:{[today]:"present"}, messages:[{text:"Ali is progressing well in reading exercises this week.", at:Date.now()}]},
+    {name:"Fatima Noor", className:"Class 4", guardianContact:"0306-7890123", notes:"", fees:{amount:2200,paid:false}, grades:{Science:"A-", Urdu:"A"}, attendance:{[today]:"absent"}, messages:[]},
+    {name:"Usman Sheikh", className:"Class 5", guardianContact:"0307-8901234", notes:"", fees:{amount:2500,paid:true}, grades:{Math:"B"}, attendance:{[today]:"present"}, messages:[]}
+  ];
+  for(const s of demoStudents){ await db.collection("students").add(s); }
+
+  const demoHomework = [
+    {className:"Class 1", subject:"Math", description:"Complete worksheet pages 10-12", dueDate:today, postedAt:Date.now()},
+    {className:"Class 3", subject:"Urdu", description:"Write 10 sentences using new vocabulary words", dueDate:today, postedAt:Date.now()},
+    {className:"Class 5", subject:"Science", description:"Prepare a short presentation on the water cycle", dueDate:today, postedAt:Date.now()}
+  ];
+  for(const h of demoHomework){ await db.collection("homework").add(h); }
+
+  const demoNotices = [
+    {title:"Parent-Teacher meeting", message:"Parent-Teacher meeting will be held this Friday at 10 AM in the main hall.", postedAt:Date.now()},
+    {title:"School closed for holiday", message:"School will remain closed on Monday for a public holiday.", postedAt:Date.now()}
+  ];
+  for(const n of demoNotices){ await db.collection("notices").add(n); }
+
+  const demoGrid = {"Class 1_Mon_1":"Math","Class 1_Mon_2":"English","Class 1_Tue_1":"Science"};
+  const mergedGrid = {...(ttDoc.grid||{}), ...demoGrid};
+  await db.doc("timetable/main").set({grid: mergedGrid});
+
+  btn.textContent = "Demo data loaded — check each tab!";
 }
 
 function wireTab(){
@@ -623,8 +638,34 @@ function wireTab(){
     };
   }
   if(tab==="backup"){
+    document.getElementById("seedDemoBtn").onclick = seedDemoData;
     document.getElementById("downloadBackupBtn").onclick = downloadFullBackup;
   }
+}
+
+async function downloadFullBackup(){
+  const btn = document.getElementById("downloadBackupBtn");
+  btn.textContent = "Preparing backup…";
+  const hwSnap = await firestore.collection("homework").get();
+  const ntSnap = await firestore.collection("notices").get();
+  const logSnap = await firestore.collection("activityLog").get();
+  const ttSnap = await firestore.doc("timetable/main").get();
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    students: students.map(({id, ...rest})=>({id, ...rest})),
+    homework: hwSnap.docs.map(d=>({id:d.id, ...d.data()})),
+    notices: ntSnap.docs.map(d=>({id:d.id, ...d.data()})),
+    activityLog: logSnap.docs.map(d=>({id:d.id, ...d.data()})),
+    timetable: ttSnap.exists ? ttSnap.data() : {}
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "gps-khankot-backup-" + todayStr() + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  btn.textContent = "Download backup (.json)";
 }
 
 document.getElementById("userLabel").textContent = CURRENT_USER;
