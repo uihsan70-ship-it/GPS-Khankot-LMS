@@ -196,6 +196,8 @@ window.addEventListener("offline", ()=>{ const b=document.getElementById("offlin
 if("serviceWorker" in navigator){ window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 
 const CLASS_LIST = ["Nursery","LKG","UKG","Class 1","Class 2","Class 3","Class 4","Class 5"];
+const EXAM_TERMS = ["Weekly Test","Mid-Term","Final Term"];
+let selectedTerm = EXAM_TERMS[0];
 let students=[], homework=[], notices=[], activityLog=[], staffList=[], tab="dashboard", selectedStudent=null, ttDoc={grid:{}}, attDate=todayStr(), classFilter="", listenersOn=false;
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -329,6 +331,7 @@ function viewDashboard(){
 
 // ---------------- CLASSES ----------------
 function viewClasses(){
+  const promoBtn = CURRENT_ROLE==="admin" ? `<div class="card"><h2>Year-end class promotion</h2><p class="sub">Moves every active student up one class (Nursery → LKG → ... → Class 5). Class 5 students are marked as graduated and archived. This affects the whole school at once.</p><button class="btn-danger" id="promoteBtn">Promote all students to next class</button></div>` : "";
   const cards = CLASS_LIST.map(c=>{
     const list = students.filter(s=>s.className===c && !s.archived);
     const present = list.filter(s=>(s.attendance||{})[attDate]==="present").length;
@@ -341,7 +344,24 @@ function viewClasses(){
       <div><button class="btn-sm" style="margin-top:10px;" data-viewclass="${c}">View roster</button></div>
     </div>`;
   }).join("");
-  return `<div class="classgrid">${cards}</div>`;
+  return `${promoBtn}<div class="classgrid">${cards}</div>`;
+}
+
+async function promoteAllStudents(){
+  const typed = prompt("This moves EVERY active student up one class, and graduates (archives) Class 5 students. This affects the whole school and cannot be easily undone.\n\nType PROMOTE to confirm:");
+  if(typed!=="PROMOTE") return;
+  const active = students.filter(s=>!s.archived);
+  for(const s of active){
+    const idx = CLASS_LIST.indexOf(s.className);
+    if(idx<0) continue;
+    if(idx === CLASS_LIST.length-1){
+      await firestore.collection("students").doc(s.id).update({archived:true, archivedAt:Date.now(), graduated:true});
+    } else {
+      await firestore.collection("students").doc(s.id).update({className: CLASS_LIST[idx+1]});
+    }
+  }
+  logActivity("promote", "students", `Promoted ${active.length} students`);
+  alert("Promotion complete.");
 }
 
 // ---------------- STUDENTS ----------------
@@ -429,33 +449,65 @@ function viewAttendance(){
       <h2>Mark attendance — ${attDate}</h2>
       ${list.length ? `<table><tr><th>Name</th><th>Class</th><th>Status</th></tr>${rows}</table>` : `<div class="empty">No students in this class yet.</div>`}
     </div>
+    <div class="card">
+      <h2>Monthly attendance summary — ${attDate.slice(0,7)}</h2>
+      ${monthlyAttendanceTable(list, attDate.slice(0,7))}
+    </div>
   `;
 }
 
+function monthlyAttendanceTable(list, monthKey){
+  if(!list.length) return `<div class="empty">No students to summarize.</div>`;
+  const rows = list.map(s=>{
+    const att = s.attendance||{};
+    let present=0, absent=0, leave=0, marked=0;
+    Object.keys(att).forEach(d=>{
+      if(!d.startsWith(monthKey)) return;
+      marked++;
+      if(att[d]==="present") present++;
+      else if(att[d]==="absent") absent++;
+      else if(att[d]==="leave") leave++;
+    });
+    const pct = marked ? Math.round((present/marked)*100) : 0;
+    const flag = marked && pct<75 ? `<span class="chip-red">${pct}%</span>` : `<span class="chip-green">${pct}%</span>`;
+    return `<tr><td>${esc(s.name)}</td><td>${esc(s.className||"-")}</td><td>${present}</td><td>${absent}</td><td>${leave}</td><td>${flag}</td></tr>`;
+  }).join("");
+  return `<table><tr><th>Name</th><th>Class</th><th>Present</th><th>Absent</th><th>Leave</th><th>Attendance %</th></tr>${rows}</table><p class="sub">Below 75% is flagged red — days with no mark aren't counted.</p>`;
+}
+
 // ---------------- GRADES ----------------
+function isLegacyFlatGrades(g){
+  return Object.values(g||{}).some(v=>v && typeof v==="object" && "obtained" in v);
+}
+
 function viewGrades(){
   const list = classFilter ? students.filter(s=>s.className===classFilter) : students;
   const opts = list.map(s=>`<option value="${s.id}" ${selectedStudent===s.id?'selected':''}>${esc(s.name)} (${esc(s.className||'-')})</option>`).join("");
   const stu = students.find(s=>s.id===selectedStudent);
   let body = `<div class="empty">Select a student to view/edit grades.</div>`;
+  const termOptions = ["Previous entries", ...EXAM_TERMS].map(t=>`<option value="${t}" ${selectedTerm===t?'selected':''}>${t}</option>`).join("");
   if(stu){
     const g = stu.grades||{};
-    const rows = Object.keys(g).map(subj=>{
-      const v = g[subj];
+    const isLegacy = selectedTerm==="Previous entries";
+    const subjMap = isLegacy ? g : (g[selectedTerm]||{});
+    const rows = Object.keys(subjMap).map(subj=>{
+      const v = subjMap[subj];
       const isObj = v && typeof v === "object";
       const obtained = isObj ? v.obtained : v;
       const total = isObj ? v.total : null;
       const pct = (isObj && total && !isNaN(obtained)) ? ((obtained/total)*100).toFixed(1)+"%" : "-";
-      return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td><span class="chip-blue">${pct}</span></td><td><button class="btn-danger" data-delgrade="${esc(subj)}">Remove</button></td></tr>`;
+      return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td><span class="chip-blue">${pct}</span></td><td>${isLegacy?"":`<button class="btn-danger" data-delgrade="${esc(subj)}">Remove</button>`}</td></tr>`;
     }).join("");
     body = `
-      <table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th><th></th></tr>${rows || `<tr><td colspan="5" class="empty">No grades recorded yet.</td></tr>`}</table>
+      <div class="row"><div><label>Exam term</label><select id="termPick">${termOptions}</select></div></div>
+      <table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th><th></th></tr>${rows || `<tr><td colspan="5" class="empty">No grades recorded for this term yet.</td></tr>`}</table>
+      ${isLegacy ? `<p class="sub">These are grades entered before exam terms existed. Pick a term above to add new grades.</p>` : `
       <div class="row" style="margin-top:10px;">
         <div><label>Subject</label><input id="g_subject" placeholder="e.g. Math"></div>
         <div><label>Marks obtained</label><input id="g_value" type="number" placeholder="e.g. 85"></div>
         <div><label>Total marks</label><input id="g_total" type="number" placeholder="e.g. 100"></div>
       </div>
-      <button class="btn-primary" id="addGradeBtn">Save grade</button>
+      <button class="btn-primary" id="addGradeBtn">Save grade</button>`}
       <button class="btn-accent2" id="printReportBtn">Print report card</button>
     `;
   }
@@ -480,16 +532,27 @@ function viewGrades(){
 
 function printReportCard(stu){
   const g = stu.grades||{};
-  const subjects = Object.keys(g);
-  let sumObtained=0, sumTotal=0, allNumeric=true;
-  const rows = subjects.map(subj=>{
-    const v=g[subj]; const isObj = v && typeof v==="object";
-    const obtained = isObj ? v.obtained : v; const total = isObj ? v.total : null;
-    if(isObj && total){ sumObtained+=Number(obtained)||0; sumTotal+=Number(total)||0; } else { allNumeric=false; }
-    const pct = (isObj && total) ? ((obtained/total)*100).toFixed(1)+"%" : "-";
-    return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td>${pct}</td></tr>`;
+  const legacy = isLegacyFlatGrades(g);
+  const termsToShow = legacy ? ["Previous entries", ...EXAM_TERMS] : EXAM_TERMS;
+  let grandObtained=0, grandTotal=0;
+  const sections = termsToShow.map(term=>{
+    const subjMap = term==="Previous entries" ? g : (g[term]||{});
+    const subjects = Object.keys(subjMap);
+    if(!subjects.length) return "";
+    let sumObtained=0, sumTotal=0;
+    const rows = subjects.map(subj=>{
+      const v=subjMap[subj]; const isObj = v && typeof v==="object";
+      const obtained = isObj ? v.obtained : v; const total = isObj ? v.total : null;
+      if(isObj && total){ sumObtained+=Number(obtained)||0; sumTotal+=Number(total)||0; grandObtained+=Number(obtained)||0; grandTotal+=Number(total)||0; }
+      const pct = (isObj && total) ? ((obtained/total)*100).toFixed(1)+"%" : "-";
+      return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td>${pct}</td></tr>`;
+    }).join("");
+    const termPct = sumTotal ? ((sumObtained/sumTotal)*100).toFixed(1)+"%" : "-";
+    return `<h3 style="margin-top:20px;">${term}</h3>
+      <table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th></tr>${rows}</table>
+      <div style="text-align:right;font-size:13px;margin-top:4px;">Term total: ${sumObtained}/${sumTotal} (${termPct})</div>`;
   }).join("");
-  const overallPct = (allNumeric && sumTotal) ? ((sumObtained/sumTotal)*100).toFixed(1)+"%" : "-";
+  const grandPct = grandTotal ? ((grandObtained/grandTotal)*100).toFixed(1)+"%" : "-";
   const w = window.open("", "_blank");
   w.document.write(`
     <html><head><title>Report Card - ${esc(stu.name)}</title>
@@ -498,11 +561,11 @@ function printReportCard(stu){
       .hd{text-align:center;border-bottom:3px solid #C99A3E;padding-bottom:12px;margin-bottom:18px;}
       .hd h1{margin:6px 0 2px;font-size:24px;}
       .hd p{margin:0;color:#555;font-size:13px;}
-      table{width:100%;border-collapse:collapse;margin-top:14px;}
+      table{width:100%;border-collapse:collapse;margin-top:8px;}
       th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:14px;}
       th{background:#16234A;color:#fff;}
       .info{display:flex;justify-content:space-between;font-size:13px;margin-top:14px;}
-      .overall{margin-top:16px;font-size:16px;font-weight:bold;text-align:right;}
+      .overall{margin-top:20px;font-size:17px;font-weight:bold;text-align:right;border-top:2px solid #16234A;padding-top:10px;}
       @media print{ button{display:none;} }
     </style></head><body>
     <div class="hd"><h1>GPS Khankot</h1><p>School Management System — Report Card</p></div>
@@ -510,8 +573,8 @@ function printReportCard(stu){
       <div><b>Name:</b> ${esc(stu.name)}<br><b>Class:</b> ${esc(stu.className||"-")}<br><b>Roll No:</b> ${esc(stu.rollNo||"-")}</div>
       <div><b>Admission No:</b> ${esc(stu.admissionNo||"-")}<br><b>Date:</b> ${new Date().toLocaleDateString()}</div>
     </div>
-    <table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th></tr>${rows || "<tr><td colspan=4>No grades recorded</td></tr>"}</table>
-    <div class="overall">Overall: ${sumObtained}/${sumTotal||"-"} (${overallPct})</div>
+    ${sections || "<p>No grades recorded yet.</p>"}
+    <div class="overall">Overall (all terms): ${grandObtained}/${grandTotal||"-"} (${grandPct})</div>
     <button onclick="window.print()" style="margin-top:20px;padding:10px 18px;">Print</button>
     </body></html>
   `);
@@ -654,14 +717,17 @@ function viewActivity(){
 // ---------------- STAFF (admin only) ----------------
 function viewStaff(){
   const rows = staffList.map(s=>`<tr>
-      <td>${esc(s.name)}</td><td>${esc(s.email||"-")}</td>
+      <td><input data-namepick="${s.id}" value="${esc(s.name)}" style="width:100px;"></td>
+      <td>${esc(s.email||"-")}</td>
+      <td><input data-subjectpick="${s.id}" value="${esc(s.subjectsTaught||"")}" placeholder="e.g. Math, Science" style="width:110px;"></td>
+      <td><select data-classpick="${s.id}"><option value="">-</option>${classOptions(s.assignedClass)}</select></td>
       <td><select data-rolepick="${s.id}"><option value="teacher" ${s.role==='teacher'?'selected':''}>Teacher</option><option value="admin" ${s.role==='admin'?'selected':''}>Admin</option></select></td>
     </tr>`).join("");
   return `
     <div class="card">
-      <h2>Staff & roles</h2>
-      <p class="sub">Admins can permanently delete students, restore backups, and manage roles here. To add a new staff member, create their account in Firebase Console → Authentication → Add user — they'll appear here after their first sign-in.</p>
-      ${rows ? `<table><tr><th>Name</th><th>Email</th><th>Role</th></tr>${rows}</table>` : `<div class="empty">No staff yet.</div>`}
+      <h2>Staff directory & roles</h2>
+      <p class="sub">Admins can permanently delete students, restore backups, and manage staff here. To add a new staff member, create their account in Firebase Console → Authentication → Add user — they'll appear here after their first sign-in. Changes save automatically.</p>
+      ${rows ? `<table><tr><th>Name</th><th>Email</th><th>Subject(s)</th><th>Assigned class</th><th>Role</th></tr>${rows}</table>` : `<div class="empty">No staff yet.</div>`}
     </div>
   `;
 }
@@ -846,6 +912,8 @@ async function restoreFromBackup(){
 function wireTab(){
   if(tab==="classes"){
     document.querySelectorAll("[data-viewclass]").forEach(el=>el.onclick=()=>{ classFilter=el.dataset.viewclass; setTab("students"); });
+    const promoBtn=document.getElementById("promoteBtn");
+    if(promoBtn) promoBtn.onclick = promoteAllStudents;
   }
   if(tab==="students"){
     document.getElementById("addStudentBtn").onclick = addStudent;
@@ -884,6 +952,8 @@ function wireTab(){
   if(tab==="grades"){
     document.getElementById("gradeClassPick").onchange = e=>{ classFilter=e.target.value; selectedStudent=null; renderTabs(); };
     document.getElementById("gradeStudentPick").onchange = e=>{ selectedStudent=e.target.value||null; renderTabs(); };
+    const termPick=document.getElementById("termPick");
+    if(termPick) termPick.onchange = e=>{ selectedTerm=e.target.value; renderTabs(); };
     const addBtn=document.getElementById("addGradeBtn");
     if(addBtn) addBtn.onclick=async()=>{
       const subj=document.getElementById("g_subject").value.trim();
@@ -891,13 +961,15 @@ function wireTab(){
       const total=document.getElementById("g_total").value.trim();
       if(!subj||!obtained) return;
       const stu=students.find(s=>s.id===selectedStudent);
-      const grades={...(stu.grades||{}), [subj]:{obtained:Number(obtained), total: total?Number(total):null}};
+      const termGrades={...(stu.grades && stu.grades[selectedTerm] || {}), [subj]:{obtained:Number(obtained), total: total?Number(total):null}};
+      const grades={...(stu.grades||{}), [selectedTerm]:termGrades};
       await db.doc("students/"+selectedStudent).update({grades});
     };
     document.querySelectorAll("[data-delgrade]").forEach(el=>el.onclick=async()=>{
       if(!confirm("Remove this grade entry?")) return;
       const stu=students.find(s=>s.id===selectedStudent);
-      const grades={...(stu.grades||{})}; delete grades[el.dataset.delgrade];
+      const termGrades={...(stu.grades && stu.grades[selectedTerm] || {})}; delete termGrades[el.dataset.delgrade];
+      const grades={...(stu.grades||{}), [selectedTerm]:termGrades};
       await db.doc("students/"+selectedStudent).update({grades});
     });
     const printBtn=document.getElementById("printReportBtn");
@@ -986,6 +1058,15 @@ function wireTab(){
     document.querySelectorAll("[data-rolepick]").forEach(el=>el.onchange=async()=>{
       await firestore.collection("staff").doc(el.dataset.rolepick).update({role: el.value});
       logActivity("update", "staff/"+el.dataset.rolepick, "role="+el.value);
+    });
+    document.querySelectorAll("[data-namepick]").forEach(el=>el.onchange=async()=>{
+      await firestore.collection("staff").doc(el.dataset.namepick).update({name: el.value.trim()});
+    });
+    document.querySelectorAll("[data-subjectpick]").forEach(el=>el.onchange=async()=>{
+      await firestore.collection("staff").doc(el.dataset.subjectpick).update({subjectsTaught: el.value.trim()});
+    });
+    document.querySelectorAll("[data-classpick]").forEach(el=>el.onchange=async()=>{
+      await firestore.collection("staff").doc(el.dataset.classpick).update({assignedClass: el.value});
     });
   }
   if(tab==="backup"){
