@@ -352,6 +352,7 @@ function viewStudents(){
   const archived = searched.filter(s=>s.archived);
   const rows = list.map(s=>`
     <tr>
+      <td>${esc(s.rollNo||"-")}</td>
       <td><span class="studlink" data-open="${s.id}">${esc(s.name)}</span></td>
       <td>${esc(s.className||"-")}</td>
       <td>${esc(s.guardianContact||"-")}</td>
@@ -369,7 +370,16 @@ function viewStudents(){
         <div><label>Full name</label><input id="s_name"></div>
         <div><label>Class</label><select id="s_class">${classOptions()}</select></div>
       </div>
+      <div class="row">
+        <div><label>Roll number</label><input id="s_roll" placeholder="e.g. 14"></div>
+        <div><label>Admission number</label><input id="s_admno" placeholder="e.g. GPS-2024-014"></div>
+      </div>
+      <div class="row">
+        <div><label>Date of birth</label><input id="s_dob" type="date"></div>
+        <div><label>Blood group</label><input id="s_blood" placeholder="e.g. O+"></div>
+      </div>
       <label>Guardian contact (phone/email)</label><input id="s_contact">
+      <label>Emergency contact (if different)</label><input id="s_emergency">
       <button class="btn-primary" id="addStudentBtn">Add student</button>
     </div>
     <div class="card">
@@ -378,7 +388,7 @@ function viewStudents(){
         <div><label>Filter by class</label><select id="stuClassFilter"><option value="">All classes</option>${classOptions(classFilter)}</select></div>
       </div>
       <h2>Roster (${list.length})</h2>
-      ${list.length ? `<table><tr><th>Name</th><th>Class</th><th>Guardian</th><th></th></tr>${rows}</table>` : `<div class="empty">No students in this view yet.</div>`}
+      ${list.length ? `<table><tr><th>Roll</th><th>Name</th><th>Class</th><th>Guardian</th><th></th></tr>${rows}</table>` : `<div class="empty">No students in this view yet.</div>`}
     </div>
     ${archived.length ? `<div class="card"><h2>Archived (${archived.length}) — not deleted, just hidden</h2><table><tr><th>Name</th><th>Class</th><th></th></tr>${archRows}</table></div>` : ""}
   `;
@@ -389,7 +399,12 @@ async function addStudent(){
   if(!name) return;
   const className=document.getElementById("s_class").value;
   const guardianContact=document.getElementById("s_contact").value.trim();
-  await db.collection("students").add({name, className, guardianContact, fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{}, messages:[]});
+  const rollNo=document.getElementById("s_roll").value.trim();
+  const admissionNo=document.getElementById("s_admno").value.trim();
+  const dob=document.getElementById("s_dob").value;
+  const bloodGroup=document.getElementById("s_blood").value.trim();
+  const emergencyContact=document.getElementById("s_emergency").value.trim();
+  await db.collection("students").add({name, className, guardianContact, rollNo, admissionNo, dob, bloodGroup, emergencyContact, fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{}, messages:[]});
 }
 
 // ---------------- ATTENDANCE ----------------
@@ -441,15 +456,66 @@ function viewGrades(){
         <div><label>Total marks</label><input id="g_total" type="number" placeholder="e.g. 100"></div>
       </div>
       <button class="btn-primary" id="addGradeBtn">Save grade</button>
+      <button class="btn-accent2" id="printReportBtn">Print report card</button>
     `;
   }
+  const profile = stu ? `
+    <div class="card">
+      <h2>Student profile</h2>
+      <table>
+        <tr><td>Roll No</td><td>${esc(stu.rollNo||"-")}</td><td>Admission No</td><td>${esc(stu.admissionNo||"-")}</td></tr>
+        <tr><td>Date of birth</td><td>${esc(stu.dob||"-")}</td><td>Blood group</td><td>${esc(stu.bloodGroup||"-")}</td></tr>
+        <tr><td>Guardian contact</td><td>${esc(stu.guardianContact||"-")}</td><td>Emergency contact</td><td>${esc(stu.emergencyContact||"-")}</td></tr>
+      </table>
+    </div>` : "";
   return `
     <div class="card"><div class="row">
       <div><label>Class</label><select id="gradeClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div>
       <div><label>Student</label><select id="gradeStudentPick"><option value="">-- choose --</option>${opts}</select></div>
     </div></div>
+    ${profile}
     <div class="card"><h2>Report card ${stu?`— ${esc(stu.name)}`:""}</h2>${body}</div>
   `;
+}
+
+function printReportCard(stu){
+  const g = stu.grades||{};
+  const subjects = Object.keys(g);
+  let sumObtained=0, sumTotal=0, allNumeric=true;
+  const rows = subjects.map(subj=>{
+    const v=g[subj]; const isObj = v && typeof v==="object";
+    const obtained = isObj ? v.obtained : v; const total = isObj ? v.total : null;
+    if(isObj && total){ sumObtained+=Number(obtained)||0; sumTotal+=Number(total)||0; } else { allNumeric=false; }
+    const pct = (isObj && total) ? ((obtained/total)*100).toFixed(1)+"%" : "-";
+    return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td>${pct}</td></tr>`;
+  }).join("");
+  const overallPct = (allNumeric && sumTotal) ? ((sumObtained/sumTotal)*100).toFixed(1)+"%" : "-";
+  const w = window.open("", "_blank");
+  w.document.write(`
+    <html><head><title>Report Card - ${esc(stu.name)}</title>
+    <style>
+      body{font-family:Georgia,serif;padding:30px;color:#16234A;}
+      .hd{text-align:center;border-bottom:3px solid #C99A3E;padding-bottom:12px;margin-bottom:18px;}
+      .hd h1{margin:6px 0 2px;font-size:24px;}
+      .hd p{margin:0;color:#555;font-size:13px;}
+      table{width:100%;border-collapse:collapse;margin-top:14px;}
+      th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:14px;}
+      th{background:#16234A;color:#fff;}
+      .info{display:flex;justify-content:space-between;font-size:13px;margin-top:14px;}
+      .overall{margin-top:16px;font-size:16px;font-weight:bold;text-align:right;}
+      @media print{ button{display:none;} }
+    </style></head><body>
+    <div class="hd"><h1>GPS Khankot</h1><p>School Management System — Report Card</p></div>
+    <div class="info">
+      <div><b>Name:</b> ${esc(stu.name)}<br><b>Class:</b> ${esc(stu.className||"-")}<br><b>Roll No:</b> ${esc(stu.rollNo||"-")}</div>
+      <div><b>Admission No:</b> ${esc(stu.admissionNo||"-")}<br><b>Date:</b> ${new Date().toLocaleDateString()}</div>
+    </div>
+    <table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th></tr>${rows || "<tr><td colspan=4>No grades recorded</td></tr>"}</table>
+    <div class="overall">Overall: ${sumObtained}/${sumTotal||"-"} (${overallPct})</div>
+    <button onclick="window.print()" style="margin-top:20px;padding:10px 18px;">Print</button>
+    </body></html>
+  `);
+  w.document.close();
 }
 
 // ---------------- FINE (replaces Fees — government institution) ----------------
@@ -604,6 +670,14 @@ function viewStaff(){
 function viewBackup(){
   return `
     <div class="card">
+      <h2>Bulk import students (CSV)</h2>
+      <p class="sub">Upload a CSV with header row: Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact. Class must exactly match one of: ${CLASS_LIST.join(", ")}.</p>
+      <button class="btn-sm" id="downloadTemplateBtn">Download CSV template</button>
+      <input type="file" id="importFile" accept=".csv" style="margin-top:10px;">
+      <button class="btn-accent2" id="importBtn" style="margin-top:8px;">Import students</button>
+      <div id="importStatus" class="sub"></div>
+    </div>
+    <div class="card">
       <h2>Load demo data (for testing)</h2>
       <p class="sub">Adds 8 sample students with attendance, grades, fine entries, homework, notices, a parent message, and a timetable.</p>
       <button class="btn-accent2" id="seedDemoBtn">Load demo data</button>
@@ -627,6 +701,49 @@ function viewBackup(){
       • Only admins can permanently delete or restore from a backup file.</p>
     </div>
   `;
+}
+
+function parseCsv(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
+  return lines.map(l=>l.split(",").map(c=>c.trim().replace(/^"|"$/g,"")));
+}
+
+async function importStudentsCsv(){
+  const fileInput = document.getElementById("importFile");
+  const status = document.getElementById("importStatus");
+  const file = fileInput.files[0];
+  if(!file){ status.textContent = "Choose a CSV file first."; return; }
+  const text = await file.text();
+  const rows = parseCsv(text);
+  const header = rows[0].map(h=>h.toLowerCase());
+  const idx = (name)=>header.indexOf(name.toLowerCase());
+  const iName=idx("name"), iClass=idx("class"), iGuardian=idx("guardiancontact"), iRoll=idx("rollno"), iAdm=idx("admissionno"), iDob=idx("dob"), iBlood=idx("bloodgroup"), iEmerg=idx("emergencycontact");
+  if(iName<0 || iClass<0){ status.textContent = "CSV must have at least Name and Class columns."; return; }
+  let count=0, skipped=0;
+  status.textContent = "Importing…";
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i];
+    const name = r[iName]; const className = r[iClass];
+    if(!name || !CLASS_LIST.includes(className)){ skipped++; continue; }
+    await db.collection("students").add({
+      name, className,
+      guardianContact: iGuardian>=0 ? (r[iGuardian]||"") : "",
+      rollNo: iRoll>=0 ? (r[iRoll]||"") : "",
+      admissionNo: iAdm>=0 ? (r[iAdm]||"") : "",
+      dob: iDob>=0 ? (r[iDob]||"") : "",
+      bloodGroup: iBlood>=0 ? (r[iBlood]||"") : "",
+      emergencyContact: iEmerg>=0 ? (r[iEmerg]||"") : "",
+      fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{}, messages:[]
+    });
+    count++;
+  }
+  status.textContent = `Imported ${count} student(s)` + (skipped ? `, skipped ${skipped} row(s) with missing name or an unrecognized class name.` : ".");
+}
+
+function downloadCsvTemplate(){
+  const header = "Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact\n";
+  const sample = `Ahmed Ali,Class 1,0300-0000000,21,GPS-2026-021,2019-05-14,O+,0300-1111111\n`;
+  downloadBlob(header+sample, "text/csv", "gps-khankot-import-template.csv");
 }
 
 async function seedDemoData(){
@@ -783,6 +900,8 @@ function wireTab(){
       const grades={...(stu.grades||{})}; delete grades[el.dataset.delgrade];
       await db.doc("students/"+selectedStudent).update({grades});
     });
+    const printBtn=document.getElementById("printReportBtn");
+    if(printBtn) printBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) printReportCard(stu); };
   }
   if(tab==="fine"){
     document.getElementById("fineClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
@@ -870,6 +989,8 @@ function wireTab(){
     });
   }
   if(tab==="backup"){
+    document.getElementById("downloadTemplateBtn").onclick = downloadCsvTemplate;
+    document.getElementById("importBtn").onclick = importStudentsCsv;
     document.getElementById("seedDemoBtn").onclick = seedDemoData;
     document.getElementById("downloadBackupBtn").onclick = downloadFullBackup;
     document.getElementById("downloadCsvBtn").onclick = downloadRosterCsv;
