@@ -125,7 +125,7 @@ select{background:var(--card);}
         <div class="school-tag">School Management System · Nursery to Class 5</div>
       </div>
     </div>
-    <div class="namebar" id="namebar" style="display:none;"><span>Signed in as <b id="userLabel"></b><span class="role-badge" id="roleBadge"></span></span><button class="signout" id="signOutBtn">Sign out</button></div>
+    <div class="namebar" id="namebar" style="display:none;"><span>Signed in as <b id="userLabel"></b><span class="role-badge" id="roleBadge"></span></span><span><button class="signout" id="langBtn" style="margin-right:12px;">اردو</button><button class="signout" id="signOutBtn">Sign out</button></span></div>
   </div>
   <div class="offline-banner" id="offlineBanner">You're offline — changes are saved on this device and will sync automatically when you're back online.</div>
   <div class="content">
@@ -135,6 +135,7 @@ select{background:var(--card);}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyD3kc5RKyQMVtyS9yDWAJvdRxt3fO9wxDo",
@@ -146,7 +147,18 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const firestore = firebase.firestore();
+const storage = firebase.storage();
 firestore.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
+
+async function uploadStudentPhoto(studentId, file){
+  const ext = (file.name.split(".").pop()||"jpg").toLowerCase();
+  const ref = storage.ref(`student-photos/${studentId}_${Date.now()}.${ext}`);
+  await ref.put(file);
+  const url = await ref.getDownloadURL();
+  await firestore.collection("students").doc(studentId).update({photoUrl: url});
+  logActivity("update", "students/"+studentId, "photo uploaded");
+  return url;
+}
 
 let CURRENT_UID=null, CURRENT_USER="Staff", CURRENT_ROLE="teacher";
 
@@ -198,6 +210,23 @@ if("serviceWorker" in navigator){ window.addEventListener("load", ()=> navigator
 const CLASS_LIST = ["Nursery","LKG","UKG","Class 1","Class 2","Class 3","Class 4","Class 5"];
 const EXAM_TERMS = ["Weekly Test","Mid-Term","Final Term"];
 let selectedTerm = EXAM_TERMS[0];
+
+let LANG = localStorage.getItem("gps_lms_lang") || "en";
+const TR = {
+  "Dashboard":"ڈیش بورڈ","Classes":"جماعتیں","Students":"طلبہ","Attendance":"حاضری","Grades":"نتائج",
+  "Fine":"جرمانہ","Homework":"ہوم ورک","Notices":"نوٹسز","Messages":"پیغامات","Timetable":"ٹائم ٹیبل",
+  "Activity":"سرگرمی","Backup":"بیک اپ","Staff":"عملہ",
+  "Staff sign-in":"عملے کے لیے سائن ان","Email":"ای میل","Password":"پاس ورڈ","Sign in":"سائن ان کریں",
+  "Sign out":"سائن آؤٹ","Signed in as":"بطور سائن ان",
+  "School Management System · Nursery to Class 5":"سکول مینجمنٹ سسٹم · نرسری تا پانچویں جماعت"
+};
+function t(s){ return LANG==="ur" ? (TR[s]||s) : s; }
+function toggleLang(){ LANG = LANG==="en" ? "ur" : "en"; localStorage.setItem("gps_lms_lang", LANG); renderTabs(); renderMasthead(); }
+function renderMasthead(){
+  document.querySelector(".school-tag").textContent = t("School Management System · Nursery to Class 5");
+  document.getElementById("langBtn").textContent = LANG==="en" ? "اردو" : "English";
+  document.querySelector(".namebar span").innerHTML = t("Signed in as") + " <b id=\"userLabel\">" + esc(CURRENT_USER) + "</b><span class=\"role-badge\" id=\"roleBadge\">" + esc(CURRENT_ROLE) + "</span>";
+}
 let students=[], homework=[], notices=[], activityLog=[], staffList=[], tab="dashboard", selectedStudent=null, ttDoc={grid:{}}, attDate=todayStr(), classFilter="", listenersOn=false;
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -212,15 +241,17 @@ function renderLogin(err){
   render(`
     <div class="loginwrap">
       <div class="card">
-        <h2>Staff sign-in</h2>
+        <h2>${t("Staff sign-in")}</h2>
         <p class="sub">Ask your admin to create your account first (Firebase Console → Authentication → Add user).</p>
-        <label>Email</label><input id="li_email" type="email">
-        <label>Password</label><input id="li_pass" type="password">
-        <button class="btn-primary" id="loginBtn" style="width:100%;">Sign in</button>
+        <label>${t("Email")}</label><input id="li_email" type="email">
+        <label>${t("Password")}</label><input id="li_pass" type="password">
+        <button class="btn-primary" id="loginBtn" style="width:100%;">${t("Sign in")}</button>
         ${err ? `<div class="error" style="margin-top:8px;">${esc(err)}</div>` : ""}
+        <button class="btn-sm" id="langBtnLogin" style="width:100%;margin-top:8px;">${LANG==="en"?"اردو":"English"}</button>
       </div>
     </div>
   `);
+  document.getElementById("langBtnLogin").onclick = ()=>{ toggleLang(); renderLogin(err); };
   document.getElementById("loginBtn").onclick = async ()=>{
     const email = document.getElementById("li_email").value.trim();
     const pass = document.getElementById("li_pass").value;
@@ -256,6 +287,7 @@ firebase.auth().onAuthStateChanged(async (user)=>{
 });
 
 document.getElementById("signOutBtn").onclick = ()=> firebase.auth().signOut();
+document.getElementById("langBtn").onclick = toggleLang;
 
 // ---------------- INIT / LISTENERS ----------------
 function init(){
@@ -296,9 +328,10 @@ function renderTabs(){
   let tabs=[["dashboard","🏠","Dashboard"],["classes","🏫","Classes"],["students","🎓","Students"],["attendance","📋","Attendance"],["grades","📘","Grades"],["fine","⚖","Fine"],["homework","✎","Homework"],["notices","📣","Notices"],["messages","✉","Messages"],["timetable","🗓","Timetable"],["activity","📖","Activity"],["backup","⛁","Backup"]];
   if(CURRENT_ROLE==="admin") tabs.push(["staff","🧑‍🏫","Staff"]);
   render(`
-    <div class="tabs">${tabs.map(([k,icon,l])=>`<div class="tab ${tab===k?'active':''}" data-tab="${k}"><span>${icon}</span>${l}</div>`).join("")}</div>
+    <div class="tabs">${tabs.map(([k,icon,l])=>`<div class="tab ${tab===k?'active':''}" data-tab="${k}"><span>${icon}</span>${t(l)}</div>`).join("")}</div>
     <div id="panel"></div>
   `);
+  renderMasthead();
   document.querySelectorAll(".tab").forEach(el=>el.onclick=()=>setTab(el.dataset.tab));
   const panel = document.getElementById("panel");
   const views = {dashboard:viewDashboard, classes:viewClasses, students:viewStudents, attendance:viewAttendance, grades:viewGrades, fine:viewFine, homework:viewHomework, notices:viewNotices, messages:viewMessages, timetable:viewTimetable, activity:viewActivity, backup:viewBackup, staff:viewStaff};
@@ -373,7 +406,7 @@ function viewStudents(){
   const rows = list.map(s=>`
     <tr>
       <td>${esc(s.rollNo||"-")}</td>
-      <td><span class="studlink" data-open="${s.id}">${esc(s.name)}</span></td>
+      <td>${s.photoUrl?`<img src="${s.photoUrl}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;">`:""}<span class="studlink" data-open="${s.id}">${esc(s.name)}</span></td>
       <td>${esc(s.className||"-")}</td>
       <td>${esc(s.guardianContact||"-")}</td>
       <td><button class="btn-danger" data-del="${s.id}">Archive</button>${CURRENT_ROLE==="admin"?` <button class="btn-danger" data-harddel="${s.id}">Delete</button>`:""}</td>
@@ -496,7 +529,10 @@ function viewGrades(){
       const obtained = isObj ? v.obtained : v;
       const total = isObj ? v.total : null;
       const pct = (isObj && total && !isNaN(obtained)) ? ((obtained/total)*100).toFixed(1)+"%" : "-";
-      return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td><span class="chip-blue">${pct}</span></td><td>${isLegacy?"":`<button class="btn-danger" data-delgrade="${esc(subj)}">Remove</button>`}</td></tr>`;
+      const editable = !isLegacy && isObj;
+      const obtainedCell = editable ? `<input type="number" data-editgrade="${esc(subj)}|obtained" value="${esc(obtained)}" style="width:70px;">` : esc(obtained);
+      const totalCell = editable ? `<input type="number" data-editgrade="${esc(subj)}|total" value="${esc(total!=null?total:'')}" style="width:70px;">` : esc(total!=null?total:"-");
+      return `<tr><td>${esc(subj)}</td><td>${obtainedCell}</td><td>${totalCell}</td><td><span class="chip-blue">${pct}</span></td><td>${isLegacy?"":`<button class="btn-danger" data-delgrade="${esc(subj)}">Remove</button>`}</td></tr>`;
     }).join("");
     body = `
       <div class="row"><div><label>Exam term</label><select id="termPick">${termOptions}</select></div></div>
@@ -513,12 +549,34 @@ function viewGrades(){
   }
   const profile = stu ? `
     <div class="card">
-      <h2>Student profile</h2>
-      <table>
-        <tr><td>Roll No</td><td>${esc(stu.rollNo||"-")}</td><td>Admission No</td><td>${esc(stu.admissionNo||"-")}</td></tr>
-        <tr><td>Date of birth</td><td>${esc(stu.dob||"-")}</td><td>Blood group</td><td>${esc(stu.bloodGroup||"-")}</td></tr>
-        <tr><td>Guardian contact</td><td>${esc(stu.guardianContact||"-")}</td><td>Emergency contact</td><td>${esc(stu.emergencyContact||"-")}</td></tr>
-      </table>
+      <h2>Student profile <span class="sub">(edits save automatically)</span></h2>
+      <div class="row" style="align-items:flex-start;">
+        <div style="flex:0 0 90px;text-align:center;">
+          ${stu.photoUrl ? `<img src="${stu.photoUrl}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);">` : `<div class="ring" style="margin:0 auto;">${esc((stu.name||"?").charAt(0))}</div>`}
+          <input type="file" id="photoFile" accept="image/*" style="margin-top:8px;font-size:10px;">
+          <button class="btn-sm" id="uploadPhotoBtn" style="margin-top:4px;">Upload photo</button>
+        </div>
+        <div style="flex:2;">
+          <div class="row">
+            <div><label>Full name</label><input data-editstu="name" value="${esc(stu.name)}"></div>
+            <div><label>Class</label><select data-editstu="className">${classOptions(stu.className)}</select></div>
+          </div>
+          <div class="row">
+            <div><label>Roll No</label><input data-editstu="rollNo" value="${esc(stu.rollNo||"")}"></div>
+            <div><label>Admission No</label><input data-editstu="admissionNo" value="${esc(stu.admissionNo||"")}"></div>
+          </div>
+          <div class="row">
+            <div><label>Date of birth</label><input type="date" data-editstu="dob" value="${esc(stu.dob||"")}"></div>
+            <div><label>Blood group</label><input data-editstu="bloodGroup" value="${esc(stu.bloodGroup||"")}"></div>
+          </div>
+          <div class="row">
+            <div><label>Guardian contact</label><input data-editstu="guardianContact" value="${esc(stu.guardianContact||"")}"></div>
+            <div><label>Emergency contact</label><input data-editstu="emergencyContact" value="${esc(stu.emergencyContact||"")}"></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-whatsapp" id="parentSummaryBtn" style="margin-top:10px;">Print/Save parent summary</button>
+      <button class="btn-whatsapp" id="parentWaBtn" style="margin-top:10px;">Send quick summary on WhatsApp</button>
     </div>` : "";
   return `
     <div class="card"><div class="row">
@@ -581,6 +639,67 @@ function printReportCard(stu){
   w.document.close();
 }
 
+function printParentSummary(stu){
+  const today = todayStr();
+  const monthKey = today.slice(0,7);
+  const att = stu.attendance||{};
+  let present=0, marked=0;
+  Object.keys(att).forEach(d=>{ if(d.startsWith(monthKey)){ marked++; if(att[d]==="present") present++; } });
+  const attPct = marked ? Math.round((present/marked)*100) : 0;
+  const g = stu.grades||{};
+  const legacy = isLegacyFlatGrades(g);
+  const latestTermKey = legacy ? "Previous entries" : [...EXAM_TERMS].reverse().find(t=>g[t] && Object.keys(g[t]).length) || EXAM_TERMS[0];
+  const latestSubjects = legacy ? g : (g[latestTermKey]||{});
+  const gradeRows = Object.keys(latestSubjects).map(subj=>{
+    const v=latestSubjects[subj]; const isObj=v&&typeof v==="object";
+    const obtained=isObj?v.obtained:v; const total=isObj?v.total:null;
+    const pct=(isObj&&total)?((obtained/total)*100).toFixed(0)+"%":"-";
+    return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td>${pct}</td></tr>`;
+  }).join("");
+  const f = stu.fine||{amount:0,paid:true};
+  const relevantHw = homework.filter(h=>!h.archived && h.className===stu.className).slice(0,3);
+  const hwList = relevantHw.map(h=>`<li>${esc(h.subject)}: ${esc(h.description)} (due ${esc(h.dueDate||"-")})</li>`).join("") || "<li>None</li>";
+  const latestNotice = notices.filter(n=>!n.archived)[0];
+  const w = window.open("", "_blank");
+  w.document.write(`
+    <html><head><title>Parent Summary - ${esc(stu.name)}</title>
+    <style>
+      body{font-family:Georgia,serif;padding:26px;color:#16234A;max-width:600px;margin:0 auto;}
+      .hd{text-align:center;border-bottom:3px solid #C99A3E;padding-bottom:10px;margin-bottom:16px;}
+      table{width:100%;border-collapse:collapse;margin-top:8px;}
+      th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:13px;}
+      th{background:#16234A;color:#fff;}
+      h3{margin-top:18px;margin-bottom:4px;font-size:15px;}
+      @media print{ button{display:none;} }
+    </style></head><body>
+    <div class="hd"><h1 style="margin:4px 0;">GPS Khankot</h1><p style="margin:0;font-size:12px;">Parent Summary Sheet</p></div>
+    <p><b>Name:</b> ${esc(stu.name)} &nbsp; <b>Class:</b> ${esc(stu.className||"-")} &nbsp; <b>Roll No:</b> ${esc(stu.rollNo||"-")}</p>
+    <h3>Attendance this month</h3><p>${present}/${marked} days present (${attPct}%)</p>
+    <h3>Latest grades — ${esc(latestTermKey)}</h3>
+    <table><tr><th>Subject</th><th>Obtained</th><th>Total</th><th>%</th></tr>${gradeRows || "<tr><td colspan=4>No grades recorded yet</td></tr>"}</table>
+    <h3>Fine status</h3><p>${f.amount>0 ? (f.paid?`Cleared (Rs. ${f.amount} — ${esc(f.reason||"")})`:`Outstanding: Rs. ${f.amount} — ${esc(f.reason||"")}`) : "No fine on record"}</p>
+    <h3>Recent homework (${esc(stu.className||"-")})</h3><ul>${hwList}</ul>
+    <h3>Latest school notice</h3><p>${latestNotice ? `<b>${esc(latestNotice.title)}:</b> ${esc(latestNotice.message)}` : "None"}</p>
+    <p style="margin-top:20px;font-size:11px;color:#777;">Generated ${new Date().toLocaleString()}</p>
+    <button onclick="window.print()" style="margin-top:10px;padding:10px 18px;">Print / Save as PDF</button>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+function shareParentSummaryWhatsApp(stu){
+  const today = todayStr();
+  const monthKey = today.slice(0,7);
+  const att = stu.attendance||{};
+  let present=0, marked=0;
+  Object.keys(att).forEach(d=>{ if(d.startsWith(monthKey)){ marked++; if(att[d]==="present") present++; } });
+  const attPct = marked ? Math.round((present/marked)*100) : 0;
+  const f = stu.fine||{amount:0,paid:true};
+  const text = `GPS Khankot - Summary for ${stu.name} (${stu.className})\nAttendance this month: ${present}/${marked} (${attPct}%)\nFine: ${f.amount>0 ? (f.paid?"Cleared":"Outstanding Rs."+f.amount) : "None"}`;
+  const digits = phoneDigits(stu.guardianContact);
+  window.open(digits ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+}
+
 // ---------------- FINE (replaces Fees — government institution) ----------------
 function viewFine(){
   const list = classFilter ? students.filter(s=>s.className===classFilter) : students;
@@ -610,9 +729,9 @@ function viewHomework(){
   const base = classFilter ? homework.filter(h=>h.className===classFilter) : homework;
   const list = base.filter(h=>!h.archived);
   const items = list.map(h=>`<div class="hwcard">
-      <b>${esc(h.className)} — ${esc(h.subject)}</b>
-      <div>${esc(h.description)}</div>
-      <div class="meta">Due: ${esc(h.dueDate||"-")} · Posted ${new Date(h.postedAt).toLocaleDateString()}
+      <input data-edithw="${h.id}|subject" value="${esc(h.subject)}" style="font-weight:700;margin-bottom:4px;">
+      <textarea data-edithw="${h.id}|description" style="min-height:40px;">${esc(h.description)}</textarea>
+      <div class="meta">Due: <input type="date" data-edithw="${h.id}|dueDate" value="${esc(h.dueDate||"")}" style="width:140px;display:inline-block;"> · Posted ${new Date(h.postedAt).toLocaleDateString()}
         <button class="btn-danger" style="margin-left:8px;" data-delhw="${h.id}">Archive</button>
       </div>
     </div>`).join("");
@@ -640,8 +759,8 @@ function viewNotices(){
   const items = notices.filter(n=>!n.archived).map(n=>{
     const waText = encodeURIComponent(n.title + " — " + n.message);
     return `<div class="notice">
-      <b>${esc(n.title)}</b>
-      <div>${esc(n.message)}</div>
+      <input data-editnotice="${n.id}|title" value="${esc(n.title)}" style="font-weight:700;margin-bottom:4px;">
+      <textarea data-editnotice="${n.id}|message" style="min-height:40px;">${esc(n.message)}</textarea>
       <div class="meta">${new Date(n.postedAt).toLocaleString()} <button class="btn-danger" style="margin-left:8px;" data-delnotice="${n.id}">Archive</button></div>
       <a href="https://api.whatsapp.com/send?text=${waText}" target="_blank" rel="noopener"><button class="btn-whatsapp" type="button">Share via WhatsApp</button></a>
     </div>`;
@@ -972,8 +1091,36 @@ function wireTab(){
       const grades={...(stu.grades||{}), [selectedTerm]:termGrades};
       await db.doc("students/"+selectedStudent).update({grades});
     });
+    document.querySelectorAll("[data-editgrade]").forEach(el=>el.onchange=async()=>{
+      const [subj, field] = el.dataset.editgrade.split("|");
+      const stu=students.find(s=>s.id===selectedStudent);
+      const termGrades={...(stu.grades && stu.grades[selectedTerm] || {})};
+      const current = termGrades[subj] && typeof termGrades[subj]==="object" ? termGrades[subj] : {obtained:0,total:null};
+      termGrades[subj] = {...current, [field]: el.value===""?null:Number(el.value)};
+      const grades={...(stu.grades||{}), [selectedTerm]:termGrades};
+      await db.doc("students/"+selectedStudent).update({grades});
+    });
     const printBtn=document.getElementById("printReportBtn");
     if(printBtn) printBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) printReportCard(stu); };
+    document.querySelectorAll("[data-editstu]").forEach(el=>el.onchange=async()=>{
+      const field = el.dataset.editstu;
+      const val = el.value.trim ? el.value.trim() : el.value;
+      if(field==="name" && !val){ alert("Name can't be empty."); renderTabs(); return; }
+      await db.doc("students/"+selectedStudent).update({[field]: val});
+    });
+    const uploadBtn=document.getElementById("uploadPhotoBtn");
+    if(uploadBtn) uploadBtn.onclick=async()=>{
+      const file=document.getElementById("photoFile").files[0];
+      if(!file) return alert("Choose an image first.");
+      uploadBtn.textContent="Uploading…";
+      try{ await uploadStudentPhoto(selectedStudent, file); }
+      catch(e){ alert("Upload failed: "+e.message); }
+      uploadBtn.textContent="Upload photo";
+    };
+    const parentBtn=document.getElementById("parentSummaryBtn");
+    if(parentBtn) parentBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) printParentSummary(stu); };
+    const parentWaBtn=document.getElementById("parentWaBtn");
+    if(parentWaBtn) parentWaBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) shareParentSummaryWhatsApp(stu); };
   }
   if(tab==="fine"){
     document.getElementById("fineClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
@@ -1008,6 +1155,10 @@ function wireTab(){
       if(!confirm("Archive this homework entry?")) return;
       await db.doc("homework/"+el.dataset.delhw).update({archived:true});
     });
+    document.querySelectorAll("[data-edithw]").forEach(el=>el.onchange=async()=>{
+      const [id, field] = el.dataset.edithw.split("|");
+      await db.doc("homework/"+id).update({[field]: el.value});
+    });
   }
   if(tab==="notices"){
     document.getElementById("postNoticeBtn").onclick=async()=>{
@@ -1019,6 +1170,10 @@ function wireTab(){
     document.querySelectorAll("[data-delnotice]").forEach(el=>el.onclick=async()=>{
       if(!confirm("Archive this notice?")) return;
       await db.doc("notices/"+el.dataset.delnotice).update({archived:true});
+    });
+    document.querySelectorAll("[data-editnotice]").forEach(el=>el.onchange=async()=>{
+      const [id, field] = el.dataset.editnotice.split("|");
+      await db.doc("notices/"+id).update({[field]: el.value});
     });
   }
   if(tab==="messages"){
