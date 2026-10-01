@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GPS Khankot — SMS</title>
+
+<!-- Fix for favicon 404 error -->
+<link rel="icon" href="data:,">
+
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#16234A">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -538,787 +542,481 @@ function viewGrades(){
       const isObj = v && typeof v === "object";
       const obtained = isObj ? v.obtained : v;
       const total = isObj ? v.total : null;
-      const pct = (isObj && total && !isNaN(obtained)) ? ((obtained/total)*100).toFixed(1)+"%" : "-";
-      const editable = !isLegacy && isObj;
-      const obtainedCell = editable ? `<input type="number" data-editgrade="${esc(subj)}|obtained" value="${esc(obtained)}" style="width:70px;">` : esc(obtained);
-      const totalCell = editable ? `<input type="number" data-editgrade="${esc(subj)}|total" value="${esc(total!=null?total:'')}" style="width:70px;">` : esc(total!=null?total:"-");
-      return `<tr><td>${esc(subj)}</td><td>${obtainedCell}</td><td>${totalCell}</td><td><span class="chip-blue">${pct}</span></td><td>${isLegacy?"":`<button class="btn-danger" data-delgrade="${esc(subj)}">Remove</button>`}</td></tr>`;
+      const pct = (isObj && total && !isNaN(obtained)) ? ((obtained/total)*100).toFixed(0)+'%' : '-';
+      return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total||'-')}</td><td>${pct}</td><td><button class="btn-danger" data-delgrade="${subj}">Remove</button></td></tr>`;
     }).join("");
     body = `
-      <div class="row"><div><label>Exam term</label><select id="termPick">${termOptions}</select></div></div>
-      <div class="table-wrap"><table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th><th></th></tr>${rows || `<tr><td colspan="5" class="empty">No grades recorded for this term yet.</td></tr>`}</table></div>
-      ${isLegacy ? `<p class="sub">These are grades entered before exam terms existed. Pick a term above to add new grades.</p>` : `
-      <div class="row" style="margin-top:10px;">
-        <div><label>Subject</label><input id="g_subject" placeholder="e.g. Math"></div>
-        <div><label>Marks obtained</label><input id="g_value" type="number" placeholder="e.g. 85"></div>
-        <div><label>Total marks</label><input id="g_total" type="number" placeholder="e.g. 100"></div>
+      <div class="row">
+        <div><label>Exam term</label><select id="gradeTermSelect">${termOptions}</select></div>
       </div>
-      <button class="btn-primary" id="addGradeBtn">Save grade</button>`}
-      <button class="btn-accent2" id="printReportBtn">Print report card</button>
+      ${rows ? `<div class="table-wrap"><table><tr><th>Subject</th><th>Obtained</th><th>Total</th><th>%</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No grades recorded for ${esc(selectedTerm)}.</div>`}
+      <h3>Add / Update subject grade</h3>
+      <div class="row">
+        <div><label>Subject</label><input id="g_subj" placeholder="e.g. Mathematics"></div>
+        <div><label>Marks obtained</label><input id="g_score" type="number" placeholder="85"></div>
+        <div><label>Total marks</label><input id="g_total" type="number" placeholder="100"></div>
+      </div>
+      <button class="btn-primary" id="saveGradeBtn">Save grade</button>
     `;
   }
-  const profile = stu ? `
-    <div class="card">
-      <h2>Student profile <span class="sub">(edits save automatically)</span></h2>
-      <div class="row" style="align-items:flex-start;">
-        <div style="flex:0 0 90px;text-align:center;">
-          ${stu.photoUrl ? `<img src="${stu.photoUrl}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);">` : `<div class="ring" style="margin:0 auto;">${esc((stu.name||"?").charAt(0))}</div>`}
-          <input type="file" id="photoFile" accept="image/*" style="margin-top:8px;font-size:10px;">
-          <button class="btn-sm" id="uploadPhotoBtn" style="margin-top:4px;">Upload photo</button>
-        </div>
-        <div style="flex:2;">
-          <div class="row">
-            <div><label>Full name</label><input data-editstu="name" value="${esc(stu.name)}"></div>
-            <div><label>Class</label><select data-editstu="className">${classOptions(stu.className)}</select></div>
-          </div>
-          <div class="row">
-            <div><label>Roll No</label><input data-editstu="rollNo" value="${esc(stu.rollNo||"")}"></div>
-            <div><label>Admission No</label><input data-editstu="admissionNo" value="${esc(stu.admissionNo||"")}"></div>
-          </div>
-          <div class="row">
-            <div><label>Date of birth</label><input type="date" data-editstu="dob" value="${esc(stu.dob||"")}"></div>
-            <div><label>Blood group</label><input data-editstu="bloodGroup" value="${esc(stu.bloodGroup||"")}"></div>
-          </div>
-          <div class="row">
-            <div><label>Guardian contact</label><input data-editstu="guardianContact" value="${esc(stu.guardianContact||"")}"></div>
-            <div><label>Emergency contact</label><input data-editstu="emergencyContact" value="${esc(stu.emergencyContact||"")}"></div>
-          </div>
-        </div>
-      </div>
-      <button class="btn-whatsapp" id="parentSummaryBtn" style="margin-top:10px;">Print/Save parent summary</button>
-      <button class="btn-whatsapp" id="parentWaBtn" style="margin-top:10px;">Send quick summary on WhatsApp</button>
-    </div>` : "";
   return `
-    <div class="card"><div class="row">
-      <div><label>Class</label><select id="gradeClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div>
-      <div><label>Student</label><select id="gradeStudentPick"><option value="">-- choose --</option>${opts}</select></div>
-    </div></div>
-    ${profile}
-    <div class="card"><h2>Report card ${stu?`— ${esc(stu.name)}`:""}</h2>${body}</div>
+    <div class="card">
+      <div class="row">
+        <div><label>Class filter</label><select id="gClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div>
+        <div><label>Student</label><select id="gStuPick"><option value="">-- Choose student --</option>${opts}</select></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Grades record ${stu ? '— ' + esc(stu.name) : ''}</h2>
+      ${body}
+    </div>
   `;
 }
 
-function printReportCard(stu){
-  const g = stu.grades||{};
-  const legacy = isLegacyFlatGrades(g);
-  const termsToShow = legacy ? ["Previous entries", ...EXAM_TERMS] : EXAM_TERMS;
-  let grandObtained=0, grandTotal=0;
-  const sections = termsToShow.map(term=>{
-    const subjMap = term==="Previous entries" ? g : (g[term]||{});
-    const subjects = Object.keys(subjMap);
-    if(!subjects.length) return "";
-    let sumObtained=0, sumTotal=0;
-    const rows = subjects.map(subj=>{
-      const v=subjMap[subj]; const isObj = v && typeof v==="object";
-      const obtained = isObj ? v.obtained : v; const total = isObj ? v.total : null;
-      if(isObj && total){ sumObtained+=Number(obtained)||0; sumTotal+=Number(total)||0; grandObtained+=Number(obtained)||0; grandTotal+=Number(total)||0; }
-      const pct = (isObj && total) ? ((obtained/total)*100).toFixed(1)+"%" : "-";
-      return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td>${pct}</td></tr>`;
-    }).join("");
-    const termPct = sumTotal ? ((sumObtained/sumTotal)*100).toFixed(1)+"%" : "-";
-    return `<h3 style="margin-top:20px;">${term}</h3>
-      <div class="table-wrap"><table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th></tr>${rows}</table></div>
-      <div style="text-align:right;font-size:13px;margin-top:4px;">Term total: ${sumObtained}/${sumTotal} (${termPct})</div>`;
-  }).join("");
-  const grandPct = grandTotal ? ((grandObtained/grandTotal)*100).toFixed(1)+"%" : "-";
-  const w = window.open("", "_blank");
-  w.document.write(`
-    <html><head><title>Report Card - ${esc(stu.name)}</title>
-    <style>
-      body{font-family:Georgia,serif;padding:30px;color:#16234A;}
-      .hd{text-align:center;border-bottom:3px solid #C99A3E;padding-bottom:12px;margin-bottom:18px;}
-      .hd h1{margin:6px 0 2px;font-size:24px;}
-      .hd p{margin:0;color:#555;font-size:13px;}
-      table{width:100%;border-collapse:collapse;margin-top:8px;}
-      th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:14px;}
-      th{background:#16234A;color:#fff;}
-      .info{display:flex;justify-content:space-between;font-size:13px;margin-top:14px;}
-      .overall{margin-top:20px;font-size:17px;font-weight:bold;text-align:right;border-top:2px solid #16234A;padding-top:10px;}
-      @media print{ button{display:none;} }
-    </style></head><body>
-    <div class="hd"><h1>GPS Khankot</h1><p>School Management System — Report Card</p></div>
-    <div class="info">
-      <div><b>Name:</b> ${esc(stu.name)}<br><b>Class:</b> ${esc(stu.className||"-")}<br><b>Roll No:</b> ${esc(stu.rollNo||"-")}</div>
-      <div><b>Admission No:</b> ${esc(stu.admissionNo||"-")}<br><b>Date:</b> ${new Date().toLocaleDateString()}</div>
-    </div>
-    ${sections || "<p>No grades recorded yet.</p>"}
-    <div class="overall">Overall (all terms): ${grandObtained}/${grandTotal||"-"} (${grandPct})</div>
-    <button onclick="window.print()" style="margin-top:20px;padding:10px 18px;">Print</button>
-    </body></html>
-  `);
-  w.document.close();
-}
-
-function printParentSummary(stu){
-  const today = todayStr();
-  const monthKey = today.slice(0,7);
-  const att = stu.attendance||{};
-  let present=0, marked=0;
-  Object.keys(att).forEach(d=>{ if(d.startsWith(monthKey)){ marked++; if(att[d]==="present") present++; } });
-  const attPct = marked ? Math.round((present/marked)*100) : 0;
-  const g = stu.grades||{};
-  const legacy = isLegacyFlatGrades(g);
-  const latestTermKey = legacy ? "Previous entries" : [...EXAM_TERMS].reverse().find(t=>g[t] && Object.keys(g[t]).length) || EXAM_TERMS[0];
-  const latestSubjects = legacy ? g : (g[latestTermKey]||{});
-  const gradeRows = Object.keys(latestSubjects).map(subj=>{
-    const v=latestSubjects[subj]; const isObj=v&&typeof v==="object";
-    const obtained=isObj?v.obtained:v; const total=isObj?v.total:null;
-    const pct=(isObj&&total)?((obtained/total)*100).toFixed(0)+"%":"-";
-    return `<tr><td>${esc(subj)}</td><td>${esc(obtained)}</td><td>${esc(total!=null?total:"-")}</td><td>${pct}</td></tr>`;
-  }).join("");
-  const f = stu.fine||{amount:0,paid:true};
-  const relevantHw = homework.filter(h=>!h.archived && h.className===stu.className).slice(0,3);
-  const hwList = relevantHw.map(h=>`<li>${esc(h.subject)}: ${esc(h.description)} (due ${esc(h.dueDate||"-")})</li>`).join("") || "<li>None</li>";
-  const latestNotice = notices.filter(n=>!n.archived)[0];
-  const w = window.open("", "_blank");
-  w.document.write(`
-    <html><head><title>Parent Summary - ${esc(stu.name)}</title>
-    <style>
-      body{font-family:Georgia,serif;padding:26px;color:#16234A;max-width:600px;margin:0 auto;}
-      .hd{text-align:center;border-bottom:3px solid #C99A3E;padding-bottom:10px;margin-bottom:16px;}
-      table{width:100%;border-collapse:collapse;margin-top:8px;}
-      th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:13px;}
-      th{background:#16234A;color:#fff;}
-      h3{margin-top:18px;margin-bottom:4px;font-size:15px;}
-      @media print{ button{display:none;} }
-    </style></head><body>
-    <div class="hd"><h1 style="margin:4px 0;">GPS Khankot</h1><p style="margin:0;font-size:12px;">Parent Summary Sheet</p></div>
-    <p><b>Name:</b> ${esc(stu.name)} &nbsp; <b>Class:</b> ${esc(stu.className||"-")} &nbsp; <b>Roll No:</b> ${esc(stu.rollNo||"-")}</p>
-    <h3>Attendance this month</h3><p>${present}/${marked} days present (${attPct}%)</p>
-    <h3>Latest grades — ${esc(latestTermKey)}</h3>
-    <div class="table-wrap"><table><tr><th>Subject</th><th>Obtained</th><th>Total</th><th>%</th></tr>${gradeRows || "<tr><td colspan=4>No grades recorded yet</td></tr>"}</table></div>
-    <h3>Fine status</h3><p>${f.amount>0 ? (f.paid?`Cleared (Rs. ${f.amount} — ${esc(f.reason||"")})`:`Outstanding: Rs. ${f.amount} — ${esc(f.reason||"")}`) : "No fine on record"}</p>
-    <h3>Recent homework (${esc(stu.className||"-")})</h3><ul>${hwList}</ul>
-    <h3>Latest school notice</h3><p>${latestNotice ? `<b>${esc(latestNotice.title)}:</b> ${esc(latestNotice.message)}` : "None"}</p>
-    <p style="margin-top:20px;font-size:11px;color:#777;">Generated ${new Date().toLocaleString()}</p>
-    <button onclick="window.print()" style="margin-top:10px;padding:10px 18px;">Print / Save as PDF</button>
-    </body></html>
-  `);
-  w.document.close();
-}
-
-function shareParentSummaryWhatsApp(stu){
-  const today = todayStr();
-  const monthKey = today.slice(0,7);
-  const att = stu.attendance||{};
-  let present=0, marked=0;
-  Object.keys(att).forEach(d=>{ if(d.startsWith(monthKey)){ marked++; if(att[d]==="present") present++; } });
-  const attPct = marked ? Math.round((present/marked)*100) : 0;
-  const f = stu.fine||{amount:0,paid:true};
-  const text = `GPS Khankot - Summary for ${stu.name} (${stu.className})\nAttendance this month: ${present}/${marked} (${attPct}%)\nFine: ${f.amount>0 ? (f.paid?"Cleared":"Outstanding Rs."+f.amount) : "None"}`;
-  const digits = phoneDigits(stu.guardianContact);
-  window.open(digits ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
-}
-
-// ---------------- FINE (replaces Fees — government institution) ----------------
+// ---------------- FINE ----------------
 function viewFine(){
-  const list = classFilter ? students.filter(s=>s.className===classFilter) : students;
-  const rows = list.map(s=>{
-    const f = s.fine || {amount:0,reason:"",paid:true};
-    return `<tr>
+  const list = students.filter(s=>s.fine && s.fine.amount>0 && !s.fine.paid);
+  const rows = list.map(s=>`
+    <tr>
       <td>${esc(s.name)}</td>
       <td>${esc(s.className||"-")}</td>
-      <td><input type="number" data-fineamt="${s.id}" value="${f.amount||0}" style="width:70px;"></td>
-      <td><input type="text" data-finereason="${s.id}" value="${esc(f.reason||"")}" placeholder="reason" style="width:110px;"></td>
-      <td>${f.amount>0 ? (f.paid ? `<span class="pill pill-ok">Cleared</span>` : `<span class="pill pill-bad">Outstanding</span>`) : `<span class="pill">—</span>`}</td>
-      <td><button class="btn-sm" data-finepaid="${s.id}|${!f.paid}">${f.paid ? "Mark outstanding" : "Mark cleared"}</button></td>
-    </tr>`;
-  }).join("");
+      <td>Rs. ${esc(s.fine.amount)}</td>
+      <td>${esc(s.fine.reason||"-")}</td>
+      <td><button class="btn-sm chip-green" data-clearfine="${s.id}">Mark Paid</button></td>
+    </tr>`).join("");
+  const allOpts = students.map(s=>`<option value="${s.id}">${esc(s.name)} (${esc(s.className||'-')})</option>`).join("");
   return `
-    <div class="card"><div class="row"><div><label>Class</label><select id="fineClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div></div></div>
     <div class="card">
-      <h2>Fine register</h2>
-      <p class="sub">For discipline or damages, not tuition (government school — no fees charged).</p>
-      ${list.length ? `<div class="table-wrap"><table><tr><th>Name</th><th>Class</th><th>Amount</th><th>Reason</th><th>Status</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No students in this view yet.</div>`}
+      <h2>Impose fine</h2>
+      <label>Student</label><select id="f_stu"><option value="">-- Select student --</option>${allOpts}</select>
+      <div class="row">
+        <div><label>Amount (PKR)</label><input id="f_amt" type="number" placeholder="50"></div>
+        <div><label>Reason</label><input id="f_reason" placeholder="e.g. Late attendance"></div>
+      </div>
+      <button class="btn-primary" id="addFineBtn">Impose fine</button>
+    </div>
+    <div class="card">
+      <h2>Unpaid fines (${list.length})</h2>
+      ${list.length ? `<div class="table-wrap"><table><tr><th>Name</th><th>Class</th><th>Amount</th><th>Reason</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No unpaid fines currently.</div>`}
     </div>
   `;
 }
 
 // ---------------- HOMEWORK ----------------
 function viewHomework(){
-  const base = classFilter ? homework.filter(h=>h.className===classFilter) : homework;
-  const list = base.filter(h=>!h.archived);
-  const items = list.map(h=>`<div class="hwcard">
-      <input data-edithw="${h.id}|subject" value="${esc(h.subject)}" style="font-weight:700;margin-bottom:4px;">
-      <textarea data-edithw="${h.id}|description" style="min-height:40px;">${esc(h.description)}</textarea>
-      <div class="meta">Due: <input type="date" data-edithw="${h.id}|dueDate" value="${esc(h.dueDate||"")}" style="width:140px;display:inline-block;"> · Posted ${new Date(h.postedAt).toLocaleDateString()}
-        <button class="btn-danger" style="margin-left:8px;" data-delhw="${h.id}">Archive</button>
-      </div>
-    </div>`).join("");
+  const list = homework.filter(h=>!h.archived);
+  const cards = list.map(h=>`
+    <div class="hwcard">
+      <b>${esc(h.className)} — ${esc(h.subject)}</b>
+      <div>${esc(h.task)}</div>
+      <div class="meta">Due: ${esc(h.dueDate)} | Assigned: ${new Date(h.postedAt||0).toLocaleDateString()}</div>
+      <button class="btn-danger" style="margin-top:6px;" data-delhw="${h.id}">Delete</button>
+    </div>
+  `).join("");
   return `
     <div class="card">
-      <h2>Post homework / assignment</h2>
+      <h2>Post homework</h2>
       <div class="row">
         <div><label>Class</label><select id="hw_class">${classOptions()}</select></div>
-        <div><label>Subject</label><input id="hw_subject" placeholder="e.g. Science"></div>
+        <div><label>Subject</label><input id="hw_subj" placeholder="e.g. Science"></div>
+        <div><label>Due date</label><input id="hw_due" type="date" value="${todayStr()}"></div>
       </div>
-      <label>Description</label><textarea id="hw_desc" placeholder="e.g. Complete worksheet page 12, questions 1-5"></textarea>
-      <label>Due date</label><input type="date" id="hw_due">
-      <button class="btn-accent2" id="postHwBtn">Post homework</button>
+      <label>Task description</label><textarea id="hw_task"></textarea>
+      <button class="btn-primary" id="addHwBtn">Post homework</button>
     </div>
     <div class="card">
-      <div class="row"><div><label>Filter by class</label><select id="hwClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div></div>
-      <h2>Assigned homework</h2>
-      ${items || `<div class="empty">No homework posted yet.</div>`}
+      <h2>Assigned homework (${list.length})</h2>
+      ${list.length ? cards : `<div class="empty">No active homework posted.</div>`}
     </div>
   `;
 }
 
 // ---------------- NOTICES ----------------
 function viewNotices(){
-  const items = notices.filter(n=>!n.archived).map(n=>{
-    const waText = encodeURIComponent(n.title + " — " + n.message);
-    return `<div class="notice">
-      <input data-editnotice="${n.id}|title" value="${esc(n.title)}" style="font-weight:700;margin-bottom:4px;">
-      <textarea data-editnotice="${n.id}|message" style="min-height:40px;">${esc(n.message)}</textarea>
-      <div class="meta">${new Date(n.postedAt).toLocaleString()} <button class="btn-danger" style="margin-left:8px;" data-delnotice="${n.id}">Archive</button></div>
-      <a href="https://api.whatsapp.com/send?text=${waText}" target="_blank" rel="noopener"><button class="btn-whatsapp" type="button">Share via WhatsApp</button></a>
-    </div>`;
-  }).join("");
+  const list = notices.filter(n=>!n.archived);
+  const cards = list.map(n=>`
+    <div class="notice">
+      <b>${esc(n.title)}</b>
+      <div>${esc(n.message)}</div>
+      <div class="meta">Posted: ${new Date(n.postedAt||0).toLocaleString()}</div>
+      <button class="btn-danger" style="margin-top:6px;" data-delnotice="${n.id}">Delete</button>
+    </div>
+  `).join("");
   return `
     <div class="card">
-      <h2>Post a school notice</h2>
-      <label>Title</label><input id="nt_title" placeholder="e.g. School closed Friday">
-      <label>Message</label><textarea id="nt_msg"></textarea>
-      <button class="btn-primary" id="postNoticeBtn">Post notice</button>
+      <h2>Post notice</h2>
+      <label>Notice title</label><input id="n_title">
+      <label>Message</label><textarea id="n_msg"></textarea>
+      <button class="btn-primary" id="addNoticeBtn">Post notice</button>
     </div>
-    <div class="card"><h2>All notices</h2>${items || `<div class="empty">No notices posted yet.</div>`}</div>
+    <div class="card">
+      <h2>Noticeboard (${list.length})</h2>
+      ${list.length ? cards : `<div class="empty">No active notices.</div>`}
+    </div>
   `;
 }
 
 // ---------------- MESSAGES ----------------
 function viewMessages(){
-  const opts = students.map(s=>`<option value="${s.id}" ${selectedStudent===s.id?'selected':''}>${esc(s.name)}</option>`).join("");
+  const opts = students.map(s=>`<option value="${s.id}" ${selectedStudent===s.id?'selected':''}>${esc(s.name)} (${esc(s.className||'-')})</option>`).join("");
   const stu = students.find(s=>s.id===selectedStudent);
-  let body = `<div class="empty">Select a student to message their guardian.</div>`;
+  let body = `<div class="empty">Select a student to view/send messages.</div>`;
   if(stu){
-    const msgs=(stu.messages||[]).slice().reverse();
-    const digits = phoneDigits(stu.guardianContact);
+    const msgs = stu.messages || [];
+    const list = msgs.map(m=>`
+      <div class="msg">
+        <div>${esc(m.text)}</div>
+        <div class="meta">Sent by ${esc(m.from||"Staff")} on ${new Date(m.at||0).toLocaleString()}</div>
+      </div>
+    `).join("");
     body = `
-      ${msgs.length ? msgs.map(m=>`<div class="msg">${esc(m.text)}<div class="meta">${new Date(m.at).toLocaleString()}</div></div>`).join("") : `<div class="empty">No messages yet.</div>`}
-      <label>New message to ${esc(stu.guardianContact||"guardian")}</label>
-      <textarea id="msgText" placeholder="e.g. Your child did great in today's reading assessment."></textarea>
-      <button class="btn-primary" id="sendMsgBtn">Log message sent</button>
-      ${digits ? `<button class="btn-whatsapp" id="waMsgBtn" type="button">Open in WhatsApp</button>` : `<p class="sub">Add a phone number to guardian contact to enable WhatsApp.</p>`}
+      ${list ? list : `<div class="empty">No messages sent yet.</div>`}
+      <label>New message for guardian of ${esc(stu.name)}</label>
+      <textarea id="m_text" placeholder="Type message..."></textarea>
+      <div class="row">
+        <button class="btn-primary" id="sendMsgBtn">Save to log</button>
+        ${stu.guardianContact ? `<button class="btn-whatsapp" id="waMsgBtn">Send via WhatsApp</button>` : ""}
+      </div>
     `;
   }
   return `
-    <div class="card"><label>Student</label><select id="msgStudentPick"><option value="">-- choose --</option>${opts}</select></div>
-    <div class="card"><h2>Parent communication ${stu?`— ${esc(stu.name)}`:""}</h2>${body}</div>
+    <div class="card">
+      <label>Student</label><select id="mStuPick"><option value="">-- Choose student --</option>${opts}</select>
+    </div>
+    <div class="card">
+      <h2>Message log ${stu ? '— ' + esc(stu.name) : ''}</h2>
+      ${body}
+    </div>
   `;
 }
 
 // ---------------- TIMETABLE ----------------
 function viewTimetable(){
-  const days=["Mon","Tue","Wed","Thu","Fri"];
-  const periods=[1,2,3,4,5,6];
+  const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const periods = ["P1","P2","P3","P4","P5","P6"];
   const grid = ttDoc.grid || {};
-  const cls = classFilter || CLASS_LIST[0];
-  let head = `<tr><th>Period</th>${days.map(d=>`<th>${d}</th>`).join("")}</tr>`;
-  let body = periods.map(p=>`<tr><td>${p}</td>${days.map(d=>{
-    const key=cls+"_"+d+"_"+p; return `<td><input class="tt-cell" data-tt="${key}" value="${esc(grid[key]||"")}" placeholder="Subject"></td>`;
-  }).join("")}</tr>`).join("");
+  let headerHtml = `<tr><th>Day</th>` + periods.map(p=>`<th>${p}</th>`).join("") + `</tr>`;
+  let rowsHtml = days.map(d=>{
+    let cells = periods.map(p=>{
+      const key = `${d}_${p}`;
+      const val = grid[key] || "";
+      return `<td><input class="tt-cell" data-key="${key}" value="${esc(val)}" style="border:none;background:transparent;width:100%;text-align:center;"></td>`;
+    }).join("");
+    return `<tr><b><td>${d}</td></b>${cells}</tr>`;
+  }).join("");
+
   return `
-    <div class="card"><div class="row"><div><label>Class</label><select id="ttClassPick">${classOptions(cls)}</select></div></div></div>
-    <div class="card"><h2>Weekly timetable — ${cls}</h2><div class="table-wrap"><table class="timetable">${head}${body}</table></div><p class="sub">Edits save automatically as you type — no need to press Save.</p></div>
+    <div class="card">
+      <h2>School timetable</h2>
+      <p class="sub">Changes are saved automatically as you edit each box.</p>
+      <div class="table-wrap">
+        <table class="timetable">
+          ${headerHtml}
+          ${rowsHtml}
+        </table>
+      </div>
+    </div>
   `;
 }
 
 // ---------------- ACTIVITY ----------------
 function viewActivity(){
-  const byUser = {};
-  activityLog.forEach(a=>{ byUser[a.user] = Math.max(byUser[a.user]||0, a.at||0); });
-  const users = Object.keys(byUser).sort((a,b)=>byUser[b]-byUser[a]);
-  const userCards = users.map(u=>`<div class="card" style="display:inline-block;min-width:150px;margin-right:8px;">
-      <b>${esc(u)}</b><div class="sub">Last active: ${new Date(byUser[u]).toLocaleString()}</div>
-    </div>`).join("");
-  const rows = activityLog.slice(0,80).map(a=>`<tr>
-      <td>${new Date(a.at).toLocaleString()}</td><td>${esc(a.user)}</td><td>${esc(a.action)}</td><td>${esc(a.target)}</td><td>${esc(a.summary||"")}</td>
-    </tr>`).join("");
-  return `
-    <div class="card"><h2>Staff activity</h2>${userCards || `<div class="empty">No activity yet.</div>`}</div>
-    <div class="card"><h2>Recent changes (${activityLog.length} total logged)</h2>
-      ${rows ? `<div class="table-wrap"><table><tr><th>When</th><th>Who</th><th>Action</th><th>Where</th><th>Detail</th></tr>${rows}</table></div>` : `<div class="empty">Nothing logged yet.</div>`}
-    </div>
-  `;
-}
-
-// ---------------- STAFF (admin only) ----------------
-function viewStaff(){
-  const nav = `<div class="subtabs">
-    <div class="subtab ${staffSubTab==='profile'?'active':''}" data-staffsub="profile">Staff Profile</div>
-    <div class="subtab ${staffSubTab==='attendance'?'active':''}" data-staffsub="attendance">Staff Attendance</div>
-  </div>`;
-  return nav + (staffSubTab==="attendance" ? viewStaffAttendance() : viewStaffProfile());
-}
-
-function viewStaffProfile(){
-  const rows = staffList.map(s=>`<tr>
-      <td><input data-namepick="${s.id}" value="${esc(s.name)}" style="width:95px;"></td>
-      <td>${esc(s.email||"-")}</td>
-      <td><input data-subjectpick="${s.id}" value="${esc(s.subjectsTaught||"")}" placeholder="e.g. Math, Science" style="width:100px;"></td>
-      <td><select data-classpick="${s.id}"><option value="">-</option>${classOptions(s.assignedClass)}</select></td>
-      <td><select data-rolepick="${s.id}"><option value="teacher" ${s.role==='teacher'?'selected':''}>Teacher</option><option value="admin" ${s.role==='admin'?'selected':''}>Admin</option></select></td>
-      <td>${s.id===CURRENT_UID ? "" : `<button class="btn-danger" data-removestaff="${s.id}">Remove</button>`}</td>
-    </tr>`).join("");
+  const rows = activityLog.map(a=>`
+    <tr>
+      <td>${new Date(a.at||0).toLocaleTimeString()}</td>
+      <td>${esc(a.user)}</td>
+      <td><span class="pill pill-ok">${esc(a.action)}</span></td>
+      <td>${esc(a.target)}</td>
+      <td>${esc(a.summary)}</td>
+    </tr>
+  `).join("");
   return `
     <div class="card">
-      <h2>Add a teacher</h2>
-      <p class="sub">Creates their login directly — no need to use Firebase Console. Give them the email and password you set here.</p>
-      <div class="row">
-        <div><label>Full name</label><input id="nt_name"></div>
-        <div><label>Email</label><input id="nt_email" type="email"></div>
-      </div>
-      <label>Temporary password (share with them)</label><input id="nt_pass" type="text" placeholder="e.g. Welcome@2026">
-      <button class="btn-primary" id="addTeacherBtn">Add teacher</button>
-      <div id="addTeacherStatus" class="sub"></div>
-    </div>
-    <div class="card">
-      <h2>Staff directory & roles</h2>
-      <p class="sub">Changes save automatically. "Remove" deletes their profile here; to fully block their login, also delete their account in Firebase Console → Authentication → Users.</p>
-      ${rows ? `<div class="table-wrap"><table><tr><th>Name</th><th>Email</th><th>Subject(s)</th><th>Assigned class</th><th>Role</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No staff yet.</div>`}
+      <h2>Recent activity log</h2>
+      ${rows ? `<div class="table-wrap"><table><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr>${rows}</table></div>` : `<div class="empty">No activity logged yet.</div>`}
     </div>
   `;
-}
-
-function viewStaffAttendance(){
-  const rows = staffList.map(s=>{
-    const status = (s.attendance||{})[staffAttDate] || "unmarked";
-    return `<tr><td>${esc(s.name)}</td><td>${esc(s.email||"-")}</td><td>
-      <button class="btn-sm ${status==='present'?'chip-green':''}" data-staffatt="${s.id}|present">Present</button>
-      <button class="btn-sm ${status==='absent'?'chip-red':''}" data-staffatt="${s.id}|absent">Absent</button>
-      <button class="btn-sm ${status==='leave'?'chip-yellow':''}" data-staffatt="${s.id}|leave">C / Leave</button>
-    </td></tr>`;
-  }).join("");
-  return `
-    <div class="card"><label>Date</label><input type="date" id="staffAttDatePick" value="${staffAttDate}"></div>
-    <div class="card">
-      <h2>Mark staff attendance — ${staffAttDate}</h2>
-      ${rows ? `<div class="table-wrap"><table><tr><th>Name</th><th>Email</th><th>Status</th></tr>${rows}</table></div>` : `<div class="empty">No staff yet.</div>`}
-    </div>
-  `;
-}
-
-async function addTeacher(){
-  const name=document.getElementById("nt_name").value.trim();
-  const email=document.getElementById("nt_email").value.trim();
-  const pass=document.getElementById("nt_pass").value;
-  const status=document.getElementById("addTeacherStatus");
-  if(!name||!email||!pass) { status.textContent="Fill in all fields."; return; }
-  if(pass.length<6){ status.textContent="Password must be at least 6 characters."; return; }
-  status.textContent="Creating account…";
-  try{
-    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
-    await firestore.collection("staff").doc(cred.user.uid).set({ name, email, role:"teacher", createdAt:Date.now() });
-    await secondaryAuth.signOut();
-    status.textContent = `Added ${name}. Share this email and password with them to sign in.`;
-    logActivity("add", "staff", name);
-  }catch(e){
-    status.textContent = "Failed: " + e.message;
-  }
 }
 
 // ---------------- BACKUP ----------------
 function viewBackup(){
   return `
     <div class="card">
-      <h2>Bulk import students (CSV)</h2>
-      <p class="sub">Upload a CSV with header row: Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact. Class must exactly match one of: ${CLASS_LIST.join(", ")}.</p>
-      <button class="btn-sm" id="downloadTemplateBtn">Download CSV template</button>
-      <input type="file" id="importFile" accept=".csv" style="margin-top:10px;">
-      <button class="btn-accent2" id="importBtn" style="margin-top:8px;">Import students</button>
-      <div id="importStatus" class="sub"></div>
-    </div>
-    <div class="card">
-      <h2>Load demo data (for testing)</h2>
-      <p class="sub">Adds 8 sample students with attendance, grades, fine entries, homework, notices, a parent message, and a timetable.</p>
-      <button class="btn-accent2" id="seedDemoBtn">Load demo data</button>
-    </div>
-    <div class="card">
-      <h2>Download backups</h2>
-      <button class="btn-primary" id="downloadBackupBtn">Download full backup (.json)</button>
-      <button class="btn-primary" id="downloadCsvBtn">Download roster (.csv)</button>
-    </div>
-    ${CURRENT_ROLE==="admin" ? `
-    <div class="card">
-      <h2>Restore from backup (admin only)</h2>
-      <p class="sub">Uploads a previously downloaded .json backup and writes it back into the database. Best used on a database that's empty or being recovered — running it on top of existing data may create duplicates in homework/notices.</p>
-      <input type="file" id="restoreFile" accept="application/json">
-      <button class="btn-danger" id="restoreBtn" style="margin-top:8px;">Restore from file</button>
-    </div>` : ""}
-    <div class="card">
-      <h2>Why your data is already safe</h2>
-      <p class="sub">• Records are stored on Google's Firestore — a durable, replicated database, not a single device.<br>
-      • "Archive" never permanently deletes — archived items can be restored (Students → Archived section).<br>
-      • Only admins can permanently delete or restore from a backup file.</p>
+      <h2>Data backup & restore</h2>
+      <p class="sub">Export all school system data to a JSON file or import a previous backup.</p>
+      <div class="row">
+        <button class="btn-primary" id="exportBtn">Export JSON Backup</button>
+      </div>
+      ${CURRENT_ROLE==="admin"?`
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
+        <h2>Restore data</h2>
+        <input type="file" id="importFile" accept=".json">
+        <button class="btn-accent2" id="importBtn" style="margin-top:8px;">Restore from File</button>
+      `:""}
     </div>
   `;
 }
 
-function parseCsv(text){
-  const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
-  return lines.map(l=>l.split(",").map(c=>c.trim().replace(/^"|"$/g,"")));
+// ---------------- STAFF (ADMIN ONLY) ----------------
+function viewStaff(){
+  const rows = staffList.map(s=>`
+    <tr>
+      <td>${esc(s.name)}</td>
+      <td>${esc(s.email)}</td>
+      <td><span class="pill pill-ok">${esc(s.role)}</span></td>
+      <td>${s.id !== CURRENT_UID ? `<button class="btn-danger" data-delstaff="${s.id}">Delete</button>` : `<span class="sub">(you)</span>`}</td>
+    </tr>
+  `).join("");
+  return `
+    <div class="card">
+      <h2>Create new staff account</h2>
+      <div class="row">
+        <div><label>Name</label><input id="st_name"></div>
+        <div><label>Email</label><input id="st_email" type="email"></div>
+      </div>
+      <div class="row">
+        <div><label>Password</label><input id="st_pass" type="password"></div>
+        <div><label>Role</label><select id="st_role"><option value="teacher">Teacher</option><option value="admin">Admin</option></select></div>
+      </div>
+      <button class="btn-primary" id="addStaffBtn">Create staff account</button>
+    </div>
+    <div class="card">
+      <h2>Staff roster (${staffList.length})</h2>
+      ${rows ? `<div class="table-wrap"><table><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No staff members found.</div>`}
+    </div>
+  `;
 }
 
-async function importStudentsCsv(){
-  const fileInput = document.getElementById("importFile");
-  const status = document.getElementById("importStatus");
-  const file = fileInput.files[0];
-  if(!file){ status.textContent = "Choose a CSV file first."; return; }
-  const text = await file.text();
-  const rows = parseCsv(text);
-  const header = rows[0].map(h=>h.toLowerCase());
-  const idx = (name)=>header.indexOf(name.toLowerCase());
-  const iName=idx("name"), iClass=idx("class"), iGuardian=idx("guardiancontact"), iRoll=idx("rollno"), iAdm=idx("admissionno"), iDob=idx("dob"), iBlood=idx("bloodgroup"), iEmerg=idx("emergencycontact");
-  if(iName<0 || iClass<0){ status.textContent = "CSV must have at least Name and Class columns."; return; }
-  let count=0, skipped=0;
-  status.textContent = "Importing…";
-  for(let i=1;i<rows.length;i++){
-    const r = rows[i];
-    const name = r[iName]; const className = r[iClass];
-    if(!name || !CLASS_LIST.includes(className)){ skipped++; continue; }
-    await db.collection("students").add({
-      name, className,
-      guardianContact: iGuardian>=0 ? (r[iGuardian]||"") : "",
-      rollNo: iRoll>=0 ? (r[iRoll]||"") : "",
-      admissionNo: iAdm>=0 ? (r[iAdm]||"") : "",
-      dob: iDob>=0 ? (r[iDob]||"") : "",
-      bloodGroup: iBlood>=0 ? (r[iBlood]||"") : "",
-      emergencyContact: iEmerg>=0 ? (r[iEmerg]||"") : "",
-      fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{}, messages:[]
-    });
-    count++;
-  }
-  status.textContent = `Imported ${count} student(s)` + (skipped ? `, skipped ${skipped} row(s) with missing name or an unrecognized class name.` : ".");
-}
-
-function downloadCsvTemplate(){
-  const header = "Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact\n";
-  const sample = `Ahmed Ali,Class 1,0300-0000000,21,GPS-2026-021,2019-05-14,O+,0300-1111111\n`;
-  downloadBlob(header+sample, "text/csv", "gps-khankot-import-template.csv");
-}
-
-async function seedDemoData(){
-  const btn = document.getElementById("seedDemoBtn");
-  btn.textContent = "Loading demo data…";
-  const today = todayStr();
-  const demoStudents = [
-    {name:"Ayesha Khan", className:"Nursery", guardianContact:"0300-1234567", fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{[today]:"present"}, messages:[]},
-    {name:"Bilal Ahmed", className:"LKG", guardianContact:"0301-2345678", fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{[today]:"present"}, messages:[]},
-    {name:"Sara Malik", className:"UKG", guardianContact:"0302-3456789", fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{[today]:"absent"}, messages:[]},
-    {name:"Hamza Iqbal", className:"Class 1", guardianContact:"0303-4567890", fine:{amount:50,reason:"Late to class repeatedly",paid:false}, grades:{Math:{obtained:92,total:100}, English:{obtained:78,total:100}}, attendance:{[today]:"present"}, messages:[]},
-    {name:"Zainab Tariq", className:"Class 2", guardianContact:"0304-5678901", fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{[today]:"leave"}, messages:[]},
-    {name:"Ali Raza", className:"Class 3", guardianContact:"0305-6789012", fine:{amount:0,reason:"",paid:true}, grades:{}, attendance:{[today]:"present"}, messages:[{text:"Ali is progressing well in reading exercises this week.", at:Date.now()}]},
-    {name:"Fatima Noor", className:"Class 4", guardianContact:"0306-7890123", fine:{amount:100,reason:"Damaged library book",paid:true}, grades:{Science:{obtained:45,total:50}, Urdu:{obtained:88,total:100}}, attendance:{[today]:"absent"}, messages:[]},
-    {name:"Usman Sheikh", className:"Class 5", guardianContact:"0307-8901234", fine:{amount:0,reason:"",paid:true}, grades:{Math:{obtained:70,total:100}}, attendance:{[today]:"present"}, messages:[]}
-  ];
-  for(const s of demoStudents){ await db.collection("students").add(s); }
-  const demoHomework = [
-    {className:"Class 1", subject:"Math", description:"Complete worksheet pages 10-12", dueDate:today, postedAt:Date.now()},
-    {className:"Class 3", subject:"Urdu", description:"Write 10 sentences using new vocabulary words", dueDate:today, postedAt:Date.now()},
-    {className:"Class 5", subject:"Science", description:"Prepare a short presentation on the water cycle", dueDate:today, postedAt:Date.now()}
-  ];
-  for(const h of demoHomework){ await db.collection("homework").add(h); }
-  const demoNotices = [
-    {title:"Parent-Teacher meeting", message:"Parent-Teacher meeting will be held this Friday at 10 AM in the main hall.", postedAt:Date.now()},
-    {title:"School closed for holiday", message:"School will remain closed on Monday for a public holiday.", postedAt:Date.now()}
-  ];
-  for(const n of demoNotices){ await db.collection("notices").add(n); }
-  const demoGrid = {"Class 1_Mon_1":"Math","Class 1_Mon_2":"English","Class 1_Tue_1":"Science"};
-  await db.doc("timetable/main").set({grid: {...(ttDoc.grid||{}), ...demoGrid}});
-  btn.textContent = "Demo data loaded — check each tab!";
-}
-
-async function downloadFullBackup(){
-  const btn = document.getElementById("downloadBackupBtn");
-  btn.textContent = "Preparing backup…";
-  const hwSnap = await firestore.collection("homework").get();
-  const ntSnap = await firestore.collection("notices").get();
-  const logSnap = await firestore.collection("activityLog").get();
-  const ttSnap = await firestore.doc("timetable/main").get();
-  const backup = {
-    exportedAt: new Date().toISOString(),
-    students: students.map(({id, ...rest})=>({id, ...rest})),
-    homework: hwSnap.docs.map(d=>({id:d.id, ...d.data()})),
-    notices: ntSnap.docs.map(d=>({id:d.id, ...d.data()})),
-    activityLog: logSnap.docs.map(d=>({id:d.id, ...d.data()})),
-    timetable: ttSnap.exists ? ttSnap.data() : {}
-  };
-  downloadBlob(JSON.stringify(backup, null, 2), "application/json", "gps-khankot-backup-" + todayStr() + ".json");
-  btn.textContent = "Download full backup (.json)";
-}
-
-function downloadRosterCsv(){
-  const today = todayStr();
-  const header = "Name,Class,Guardian Contact,Fine Amount,Fine Status,Today Attendance\n";
-  const rows = students.filter(s=>!s.archived).map(s=>{
-    const f = s.fine || {amount:0,paid:true};
-    const att = (s.attendance||{})[today] || "unmarked";
-    return [s.name, s.className, s.guardianContact||"", f.amount||0, f.paid?"Cleared":"Outstanding", att].map(v=>`"${(v+"").replace(/"/g,'""')}"`).join(",");
-  }).join("\n");
-  downloadBlob(header+rows, "text/csv", "gps-khankot-roster-" + today + ".csv");
-}
-
-function downloadBlob(content, type, filename){
-  const blob = new Blob([content], {type});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function restoreFromBackup(){
-  const fileInput = document.getElementById("restoreFile");
-  const file = fileInput.files[0];
-  if(!file) return alert("Choose a backup .json file first.");
-  const btn = document.getElementById("restoreBtn");
-  btn.textContent = "Restoring…";
-  try{
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if(data.students){
-      for(const s of data.students){
-        const {id, ...rest} = s;
-        await firestore.collection("students").doc(id).set(rest);
-      }
-    }
-    if(data.homework) for(const h of data.homework){ const {id, ...rest} = h; await firestore.collection("homework").add(rest); }
-    if(data.notices) for(const n of data.notices){ const {id, ...rest} = n; await firestore.collection("notices").add(rest); }
-    if(data.timetable) await firestore.doc("timetable/main").set(data.timetable);
-    logActivity("restore", "backup", file.name);
-    btn.textContent = "Restore complete!";
-  }catch(e){
-    alert("Restore failed: " + e.message);
-    btn.textContent = "Restore from file";
-  }
-}
-
-// ---------------- WIRING ----------------
+// ---------------- EVENT WIRING ----------------
 function wireTab(){
-  if(tab==="classes"){
-    document.querySelectorAll("[data-viewclass]").forEach(el=>el.onclick=()=>{ classFilter=el.dataset.viewclass; setTab("students"); });
-    const promoBtn=document.getElementById("promoteBtn");
-    if(promoBtn) promoBtn.onclick = promoteAllStudents;
+  if(document.getElementById("promoteBtn")){
+    document.getElementById("promoteBtn").onclick = promoteAllStudents;
   }
-  if(tab==="students"){
-    document.getElementById("addStudentBtn").onclick = addStudent;
-    document.getElementById("stuClassFilter").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
-    let stuSearchTimer;
-    document.getElementById("stuSearch").oninput = e=>{
+  if(document.getElementById("addStudentBtn")){
+    document.getElementById("addStudentBtn").onclick = async ()=>{
+      await addStudent();
+      renderTabs();
+    };
+  }
+  if(document.getElementById("stuSearch")){
+    document.getElementById("stuSearch").oninput = (e)=>{
+      window.__stuSearch = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("stuClassFilter")){
+    document.getElementById("stuClassFilter").onchange = (e)=>{
+      classFilter = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("attDatePick")){
+    document.getElementById("attDatePick").onchange = (e)=>{
+      attDate = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("attClassPick")){
+    document.getElementById("attClassPick").onchange = (e)=>{
+      classFilter = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("gClassPick")){
+    document.getElementById("gClassPick").onchange = (e)=>{
+      classFilter = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("gStuPick")){
+    document.getElementById("gStuPick").onchange = (e)=>{
+      selectedStudent = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("gradeTermSelect")){
+    document.getElementById("gradeTermSelect").onchange = (e)=>{
+      selectedTerm = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("saveGradeBtn")){
+    document.getElementById("saveGradeBtn").onclick = async ()=>{
+      const subj = document.getElementById("g_subj").value.trim();
+      const score = Number(document.getElementById("g_score").value);
+      const total = Number(document.getElementById("g_total").value);
+      if(!subj || isNaN(score) || !selectedStudent) return;
+      const stu = students.find(s=>s.id===selectedStudent);
+      const g = stu.grades || {};
+      if(selectedTerm === "Previous entries"){
+        g[subj] = total ? {obtained:score, total} : score;
+      } else {
+        if(!g[selectedTerm]) g[selectedTerm] = {};
+        g[selectedTerm][subj] = total ? {obtained:score, total} : score;
+      }
+      await db.doc(`students/${selectedStudent}`).update({grades:g});
+      renderTabs();
+    };
+  }
+  if(document.getElementById("addFineBtn")){
+    document.getElementById("addFineBtn").onclick = async ()=>{
+      const id = document.getElementById("f_stu").value;
+      const amt = Number(document.getElementById("f_amt").value);
+      const reason = document.getElementById("f_reason").value.trim();
+      if(!id || !amt) return;
+      await db.doc(`students/${id}`).update({fine:{amount:amt, reason, paid:false}});
+      renderTabs();
+    };
+  }
+  if(document.getElementById("addHwBtn")){
+    document.getElementById("addHwBtn").onclick = async ()=>{
+      const className = document.getElementById("hw_class").value;
+      const subject = document.getElementById("hw_subj").value.trim();
+      const dueDate = document.getElementById("hw_due").value;
+      const task = document.getElementById("hw_task").value.trim();
+      if(!subject || !task) return;
+      await db.collection("homework").add({className, subject, dueDate, task, postedAt:Date.now(), archived:false});
+      renderTabs();
+    };
+  }
+  if(document.getElementById("addNoticeBtn")){
+    document.getElementById("addNoticeBtn").onclick = async ()=>{
+      const title = document.getElementById("n_title").value.trim();
+      const message = document.getElementById("n_msg").value.trim();
+      if(!title || !message) return;
+      await db.collection("notices").add({title, message, postedAt:Date.now(), archived:false});
+      renderTabs();
+    };
+  }
+  if(document.getElementById("mStuPick")){
+    document.getElementById("mStuPick").onchange = (e)=>{
+      selectedStudent = e.target.value;
+      renderTabs();
+    };
+  }
+  if(document.getElementById("sendMsgBtn")){
+    document.getElementById("sendMsgBtn").onclick = async ()=>{
+      const text = document.getElementById("m_text").value.trim();
+      if(!text || !selectedStudent) return;
+      const stu = students.find(s=>s.id===selectedStudent);
+      const msgs = stu.messages || [];
+      msgs.push({text, from:CURRENT_USER, at:Date.now()});
+      await db.doc(`students/${selectedStudent}`).update({messages:msgs});
+      renderTabs();
+    };
+  }
+  if(document.getElementById("waMsgBtn")){
+    document.getElementById("waMsgBtn").onclick = ()=>{
+      const text = document.getElementById("m_text").value.trim();
+      const stu = students.find(s=>s.id===selectedStudent);
+      if(!stu || !stu.guardianContact) return;
+      const phone = phoneDigits(stu.guardianContact);
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`,'_blank');
+    };
+  }
+
+  document.querySelectorAll(".tt-cell").forEach(input=>{
+    input.onchange = async (e)=>{
+      const key = e.target.dataset.key;
       const val = e.target.value;
-      clearTimeout(stuSearchTimer);
-      stuSearchTimer = setTimeout(()=>{ window.__stuSearch=val; renderTabs(); }, 350);
+      const grid = ttDoc.grid || {};
+      grid[key] = val;
+      await db.doc("timetable/main").set({grid});
     };
-    document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>{ selectedStudent=el.dataset.open; setTab("grades"); });
-    document.querySelectorAll("[data-del]").forEach(el=>el.onclick=async()=>{
-      if(!confirm("Archive this student? They'll be hidden from the roster but ALL their data stays saved and can be restored anytime.")) return;
-      await db.doc("students/"+el.dataset.del).update({archived:true, archivedAt:Date.now()});
-    });
-    document.querySelectorAll("[data-harddel]").forEach(el=>el.onclick=async()=>{
-      const stu=students.find(s=>s.id===el.dataset.harddel);
-      const typed = prompt(`This PERMANENTLY erases ${stu?stu.name:"this student"} and all their records. This cannot be undone.\n\nType DELETE to confirm:`);
-      if(typed!=="DELETE") return;
-      await db.doc("students/"+el.dataset.harddel).delete();
-    });
-    document.querySelectorAll("[data-restore]").forEach(el=>el.onclick=async()=>{
-      await db.doc("students/"+el.dataset.restore).update({archived:false});
-    });
-  }
-  if(tab==="attendance"){
-    document.getElementById("attDatePick").onchange = e=>{ attDate=e.target.value; renderTabs(); };
-    document.getElementById("attClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
-    document.querySelectorAll("[data-att]").forEach(el=>el.onclick=async()=>{
-      const [id,status]=el.dataset.att.split("|");
-      const stu=students.find(s=>s.id===id);
-      const attendance={...(stu.attendance||{}), [attDate]:status};
-      await db.doc("students/"+id).update({attendance});
-    });
-  }
-  if(tab==="grades"){
-    document.getElementById("gradeClassPick").onchange = e=>{ classFilter=e.target.value; selectedStudent=null; renderTabs(); };
-    document.getElementById("gradeStudentPick").onchange = e=>{ selectedStudent=e.target.value||null; renderTabs(); };
-    const termPick=document.getElementById("termPick");
-    if(termPick) termPick.onchange = e=>{ selectedTerm=e.target.value; renderTabs(); };
-    const addBtn=document.getElementById("addGradeBtn");
-    if(addBtn) addBtn.onclick=async()=>{
-      const subj=document.getElementById("g_subject").value.trim();
-      const obtained=document.getElementById("g_value").value.trim();
-      const total=document.getElementById("g_total").value.trim();
-      if(!subj||!obtained) return;
-      const stu=students.find(s=>s.id===selectedStudent);
-      const termGrades={...(stu.grades && stu.grades[selectedTerm] || {}), [subj]:{obtained:Number(obtained), total: total?Number(total):null}};
-      const grades={...(stu.grades||{}), [selectedTerm]:termGrades};
-      await db.doc("students/"+selectedStudent).update({grades});
-    };
-    document.querySelectorAll("[data-delgrade]").forEach(el=>el.onclick=async()=>{
-      if(!confirm("Remove this grade entry?")) return;
-      const stu=students.find(s=>s.id===selectedStudent);
-      const termGrades={...(stu.grades && stu.grades[selectedTerm] || {})}; delete termGrades[el.dataset.delgrade];
-      const grades={...(stu.grades||{}), [selectedTerm]:termGrades};
-      await db.doc("students/"+selectedStudent).update({grades});
-    });
-    document.querySelectorAll("[data-editgrade]").forEach(el=>el.onchange=async()=>{
-      const [subj, field] = el.dataset.editgrade.split("|");
-      const stu=students.find(s=>s.id===selectedStudent);
-      const termGrades={...(stu.grades && stu.grades[selectedTerm] || {})};
-      const current = termGrades[subj] && typeof termGrades[subj]==="object" ? termGrades[subj] : {obtained:0,total:null};
-      termGrades[subj] = {...current, [field]: el.value===""?null:Number(el.value)};
-      const grades={...(stu.grades||{}), [selectedTerm]:termGrades};
-      await db.doc("students/"+selectedStudent).update({grades});
-    });
-    const printBtn=document.getElementById("printReportBtn");
-    if(printBtn) printBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) printReportCard(stu); };
-    document.querySelectorAll("[data-editstu]").forEach(el=>el.onchange=async()=>{
-      const field = el.dataset.editstu;
-      const val = el.value.trim ? el.value.trim() : el.value;
-      if(field==="name" && !val){ alert("Name can't be empty."); renderTabs(); return; }
-      await db.doc("students/"+selectedStudent).update({[field]: val});
-    });
-    const uploadBtn=document.getElementById("uploadPhotoBtn");
-    if(uploadBtn) uploadBtn.onclick=async()=>{
-      const file=document.getElementById("photoFile").files[0];
-      if(!file) return alert("Choose an image first.");
-      uploadBtn.textContent="Uploading…";
-      try{ await uploadStudentPhoto(selectedStudent, file); }
-      catch(e){ alert("Upload failed: "+e.message); }
-      uploadBtn.textContent="Upload photo";
-    };
-    const parentBtn=document.getElementById("parentSummaryBtn");
-    if(parentBtn) parentBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) printParentSummary(stu); };
-    const parentWaBtn=document.getElementById("parentWaBtn");
-    if(parentWaBtn) parentWaBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) shareParentSummaryWhatsApp(stu); };
-  }
-  if(tab==="fine"){
-    document.getElementById("fineClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
-    document.querySelectorAll("[data-fineamt]").forEach(el=>el.onchange=async()=>{
-      const stu=students.find(s=>s.id===el.dataset.fineamt);
-      const fine={...(stu.fine||{}), amount:parseFloat(el.value)||0};
-      await db.doc("students/"+el.dataset.fineamt).update({fine});
-    });
-    document.querySelectorAll("[data-finereason]").forEach(el=>el.onchange=async()=>{
-      const stu=students.find(s=>s.id===el.dataset.finereason);
-      const fine={...(stu.fine||{}), reason:el.value.trim()};
-      await db.doc("students/"+el.dataset.finereason).update({fine});
-    });
-    document.querySelectorAll("[data-finepaid]").forEach(el=>el.onclick=async()=>{
-      const [id,paidStr]=el.dataset.finepaid.split("|");
-      const stu=students.find(s=>s.id===id);
-      const fine={...(stu.fine||{}), paid: paidStr==="true"};
-      await db.doc("students/"+id).update({fine});
-    });
-  }
-  if(tab==="homework"){
-    document.getElementById("hwClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
-    document.getElementById("postHwBtn").onclick=async()=>{
-      const className=document.getElementById("hw_class").value;
-      const subject=document.getElementById("hw_subject").value.trim();
-      const description=document.getElementById("hw_desc").value.trim();
-      const dueDate=document.getElementById("hw_due").value;
-      if(!subject||!description) return;
-      await db.collection("homework").add({className, subject, description, dueDate, postedAt:Date.now()});
-    };
-    document.querySelectorAll("[data-delhw]").forEach(el=>el.onclick=async()=>{
-      if(!confirm("Archive this homework entry?")) return;
-      await db.doc("homework/"+el.dataset.delhw).update({archived:true});
-    });
-    document.querySelectorAll("[data-edithw]").forEach(el=>el.onchange=async()=>{
-      const [id, field] = el.dataset.edithw.split("|");
-      await db.doc("homework/"+id).update({[field]: el.value});
-    });
-  }
-  if(tab==="notices"){
-    document.getElementById("postNoticeBtn").onclick=async()=>{
-      const title=document.getElementById("nt_title").value.trim();
-      const message=document.getElementById("nt_msg").value.trim();
-      if(!title||!message) return;
-      await db.collection("notices").add({title, message, postedAt:Date.now()});
-    };
-    document.querySelectorAll("[data-delnotice]").forEach(el=>el.onclick=async()=>{
-      if(!confirm("Archive this notice?")) return;
-      await db.doc("notices/"+el.dataset.delnotice).update({archived:true});
-    });
-    document.querySelectorAll("[data-editnotice]").forEach(el=>el.onchange=async()=>{
-      const [id, field] = el.dataset.editnotice.split("|");
-      await db.doc("notices/"+id).update({[field]: el.value});
-    });
-  }
-  if(tab==="messages"){
-    document.getElementById("msgStudentPick").onchange = e=>{ selectedStudent=e.target.value||null; renderTabs(); };
-    const sendBtn=document.getElementById("sendMsgBtn");
-    if(sendBtn) sendBtn.onclick=async()=>{
-      const text=document.getElementById("msgText").value.trim();
-      if(!text) return;
-      const stu=students.find(s=>s.id===selectedStudent);
-      const messages=[...(stu.messages||[]), {text, at:Date.now()}];
-      await db.doc("students/"+selectedStudent).update({messages});
-    };
-    const waBtn=document.getElementById("waMsgBtn");
-    if(waBtn) waBtn.onclick=()=>{
-      const stu=students.find(s=>s.id===selectedStudent);
-      const text=document.getElementById("msgText").value.trim() || "Hello, this is a message from GPS Khankot.";
-      const digits = phoneDigits(stu.guardianContact);
-      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, "_blank");
+  });
+
+  if(document.getElementById("exportBtn")){
+    document.getElementById("exportBtn").onclick = ()=>{
+      const data = JSON.stringify({students, homework, notices, staffList}, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gps-khankot-backup-${todayStr()}.json`;
+      a.click();
     };
   }
-  if(tab==="timetable"){
-    document.getElementById("ttClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
-    document.querySelectorAll(".tt-cell").forEach(el=>{
-      let saveTimer;
-      el.oninput = ()=>{
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(async ()=>{
-          const grid={...(ttDoc.grid||{})};
-          const key = el.dataset.tt;
-          if(el.value.trim()) grid[key]=el.value.trim(); else delete grid[key];
-          await db.doc("timetable/main").set({grid});
-        }, 500);
-      };
-    });
+
+  if(document.getElementById("importBtn")){
+    document.getElementById("importBtn").onclick = async ()=>{
+      const file = document.getElementById("importFile").files[0];
+      if(!file) return;
+      const text = await file.text();
+      try{
+        const json = JSON.parse(text);
+        if(json.students && Array.isArray(json.students)){
+          for(const s of json.students){
+            const id = s.id;
+            delete s.id;
+            if(id) await firestore.collection("students").doc(id).set(s, {merge:true});
+            else await firestore.collection("students").add(s);
+          }
+        }
+        alert("Backup restored successfully!");
+        renderTabs();
+      }catch(e){
+        alert("Invalid backup file format.");
+      }
+    };
   }
-  if(tab==="staff"){
-    document.querySelectorAll("[data-staffsub]").forEach(el=>el.onclick=()=>{ staffSubTab=el.dataset.staffsub; renderTabs(); });
-    if(staffSubTab==="attendance"){
-      document.getElementById("staffAttDatePick").onchange = e=>{ staffAttDate=e.target.value; renderTabs(); };
-      document.querySelectorAll("[data-staffatt]").forEach(el=>el.onclick=async()=>{
-        const [id,status]=el.dataset.staffatt.split("|");
-        const st=staffList.find(x=>x.id===id);
-        const attendance={...(st.attendance||{}), [staffAttDate]:status};
-        await firestore.collection("staff").doc(id).update({attendance});
-        logActivity("update", "staff/"+id, "attendance="+status);
-      });
-      return;
-    }
-    document.getElementById("addTeacherBtn").onclick = addTeacher;
-    document.querySelectorAll("[data-rolepick]").forEach(el=>el.onchange=async()=>{
-      await firestore.collection("staff").doc(el.dataset.rolepick).update({role: el.value});
-      logActivity("update", "staff/"+el.dataset.rolepick, "role="+el.value);
-    });
-    document.querySelectorAll("[data-namepick]").forEach(el=>el.onchange=async()=>{
-      await firestore.collection("staff").doc(el.dataset.namepick).update({name: el.value.trim()});
-    });
-    document.querySelectorAll("[data-subjectpick]").forEach(el=>el.onchange=async()=>{
-      await firestore.collection("staff").doc(el.dataset.subjectpick).update({subjectsTaught: el.value.trim()});
-    });
-    document.querySelectorAll("[data-classpick]").forEach(el=>el.onchange=async()=>{
-      await firestore.collection("staff").doc(el.dataset.classpick).update({assignedClass: el.value});
-    });
-    document.querySelectorAll("[data-removestaff]").forEach(el=>el.onclick=async()=>{
-      const st=staffList.find(x=>x.id===el.dataset.removestaff);
-      if(!confirm(`Remove ${st?st.name:"this staff member"}'s profile? They won't appear in the directory, but you must also delete their account in Firebase Console → Authentication to fully block their login.`)) return;
-      await firestore.collection("staff").doc(el.dataset.removestaff).delete();
-      logActivity("delete", "staff/"+el.dataset.removestaff, "");
-    });
+
+  if(document.getElementById("addStaffBtn")){
+    document.getElementById("addStaffBtn").onclick = async ()=>{
+      const name = document.getElementById("st_name").value.trim();
+      const email = document.getElementById("st_email").value.trim();
+      const pass = document.getElementById("st_pass").value;
+      const role = document.getElementById("st_role").value;
+      if(!name || !email || !pass) return;
+      try{
+        const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
+        await firestore.collection("staff").doc(cred.user.uid).set({name, email, role, createdAt:Date.now()});
+        secondaryAuth.signOut();
+        alert("Staff account created!");
+        renderTabs();
+      }catch(e){
+        alert("Failed to create staff: " + e.message);
+      }
+    };
   }
-  if(tab==="backup"){
-    document.getElementById("downloadTemplateBtn").onclick = downloadCsvTemplate;
-    document.getElementById("importBtn").onclick = importStudentsCsv;
-    document.getElementById("seedDemoBtn").onclick = seedDemoData;
-    document.getElementById("downloadBackupBtn").onclick = downloadFullBackup;
-    document.getElementById("downloadCsvBtn").onclick = downloadRosterCsv;
-    const restoreBtn = document.getElementById("restoreBtn");
-    if(restoreBtn) restoreBtn.onclick = restoreFromBackup;
-  }
+
+  // Click delegates
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick = ()=> { selectedStudent = el.dataset.open; tab = "messages"; renderTabs(); });
+  document.querySelectorAll("[data-viewclass]").forEach(el=>el.onclick = ()=> { classFilter = el.dataset.viewclass; tab = "students"; renderTabs(); });
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick = async ()=> { await db.doc(`students/${el.dataset.del}`).update({archived:true}); renderTabs(); });
+  document.querySelectorAll("[data-harddel]").forEach(el=>el.onclick = async ()=> { if(confirm("Permanently delete student?")) { await db.doc(`students/${el.dataset.harddel}`).delete(); renderTabs(); } });
+  document.querySelectorAll("[data-restore]").forEach(el=>el.onclick = async ()=> { await db.doc(`students/${el.dataset.restore}`).update({archived:false}); renderTabs(); });
+  document.querySelectorAll("[data-att]").forEach(el=>el.onclick = async ()=> {
+    const [id, status] = el.dataset.att.split("|");
+    const stu = students.find(s=>s.id===id);
+    const att = stu.attendance || {};
+    att[attDate] = status;
+    await db.doc(`students/${id}`).update({attendance:att});
+    renderTabs();
+  });
+  document.querySelectorAll("[data-delgrade]").forEach(el=>el.onclick = async ()=> {
+    const subj = el.dataset.delgrade;
+    const stu = students.find(s=>s.id===selectedStudent);
+    const g = stu.grades || {};
+    if(selectedTerm === "Previous entries") delete g[subj];
+    else if(g[selectedTerm]) delete g[selectedTerm][subj];
+    await db.doc(`students/${selectedStudent}`).update({grades:g});
+    renderTabs();
+  });
+  document.querySelectorAll("[data-clearfine]").forEach(el=>el.onclick = async ()=> {
+    await db.doc(`students/${el.dataset.clearfine}`).update({"fine.paid":true});
+    renderTabs();
+  });
+  document.querySelectorAll("[data-delhw]").forEach(el=>el.onclick = async ()=> {
+    await db.doc(`homework/${el.dataset.delhw}`).update({archived:true});
+    renderTabs();
+  });
+  document.querySelectorAll("[data-delnotice]").forEach(el=>el.onclick = async ()=> {
+    await db.doc(`notices/${el.dataset.delnotice}`).update({archived:true});
+    renderTabs();
+  });
+  document.querySelectorAll("[data-delstaff]").forEach(el=>el.onclick = async ()=> {
+    if(confirm("Delete staff member?")) { await db.doc(`staff/${el.dataset.delstaff}`).delete(); renderTabs(); }
+  });
 }
 </script>
 </body>
