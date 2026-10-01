@@ -1,50 +1,26 @@
-const CACHE_NAME = 'gps-khankot-v1';
+const CACHE = "gps-khankot-lms-v10";
+const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
-// Files to cache for offline use
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html'
-];
-
-// Install event: Save core files in cache
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
   self.skipWaiting();
 });
 
-// Activate event: Clean up old caches if updated
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
-// Fetch event: Serve cached content and ignore Chrome extensions
-self.addEventListener('fetch', (event) => {
-  // FIX: Skip non-http/https requests (prevents chrome-extension error)
-  if (!event.request.url.startsWith('http')) {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request);
-    })
+self.addEventListener("fetch", (e) => {
+  const url = e.request.url;
+  if (url.includes("firestore.googleapis.com") || url.includes("googleapis.com")) return;
+  e.respondWith(
+    caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
+      const resClone = res.clone();
+      caches.open(CACHE).then((c) => c.put(e.request, resClone));
+      return res;
+    }).catch(() => cached))
   );
 });
