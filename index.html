@@ -93,6 +93,10 @@ tr:nth-child(even) td{background:rgba(0,0,0,.015);}
 .chip-red{display:inline-block;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;color:#fff;background:linear-gradient(135deg,#B54B3A,#DD6B52);}
 .chip-blue{display:inline-block;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1D4FA8,#3E7CDB);}
 .chip-gold{display:inline-block;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;color:#2e2408;background:linear-gradient(135deg,var(--gold),var(--gold-2));}
+.chip-yellow{display:inline-block;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;color:#4a3b00;background:linear-gradient(135deg,#F2C744,#E0A800);}
+.subtabs{display:flex;gap:6px;margin-bottom:12px;}
+.subtab{padding:6px 12px;border-radius:20px;background:var(--bg);border:1px solid var(--line);color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;}
+.subtab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
 .dashgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
 .dashcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;text-align:center;}
@@ -148,6 +152,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const firestore = firebase.firestore();
 const storage = firebase.storage();
+const secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary");
+const secondaryAuth = secondaryApp.auth();
 firestore.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
 
 async function uploadStudentPhoto(studentId, file){
@@ -227,7 +233,7 @@ function renderMasthead(){
   document.getElementById("langBtn").textContent = LANG==="en" ? "اردو" : "English";
   document.querySelector(".namebar span").innerHTML = t("Signed in as") + " <b id=\"userLabel\">" + esc(CURRENT_USER) + "</b><span class=\"role-badge\" id=\"roleBadge\">" + esc(CURRENT_ROLE) + "</span>";
 }
-let students=[], homework=[], notices=[], activityLog=[], staffList=[], tab="dashboard", selectedStudent=null, ttDoc={grid:{}}, attDate=todayStr(), classFilter="", listenersOn=false;
+let students=[], homework=[], notices=[], activityLog=[], staffList=[], tab="dashboard", selectedStudent=null, ttDoc={grid:{}}, attDate=todayStr(), classFilter="", listenersOn=false, staffSubTab="profile", staffAttDate=todayStr();
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function render(html){ document.getElementById("root").innerHTML = html; }
@@ -835,20 +841,77 @@ function viewActivity(){
 
 // ---------------- STAFF (admin only) ----------------
 function viewStaff(){
+  const nav = `<div class="subtabs">
+    <div class="subtab ${staffSubTab==='profile'?'active':''}" data-staffsub="profile">Staff Profile</div>
+    <div class="subtab ${staffSubTab==='attendance'?'active':''}" data-staffsub="attendance">Staff Attendance</div>
+  </div>`;
+  return nav + (staffSubTab==="attendance" ? viewStaffAttendance() : viewStaffProfile());
+}
+
+function viewStaffProfile(){
   const rows = staffList.map(s=>`<tr>
-      <td><input data-namepick="${s.id}" value="${esc(s.name)}" style="width:100px;"></td>
+      <td><input data-namepick="${s.id}" value="${esc(s.name)}" style="width:95px;"></td>
       <td>${esc(s.email||"-")}</td>
-      <td><input data-subjectpick="${s.id}" value="${esc(s.subjectsTaught||"")}" placeholder="e.g. Math, Science" style="width:110px;"></td>
+      <td><input data-subjectpick="${s.id}" value="${esc(s.subjectsTaught||"")}" placeholder="e.g. Math, Science" style="width:100px;"></td>
       <td><select data-classpick="${s.id}"><option value="">-</option>${classOptions(s.assignedClass)}</select></td>
       <td><select data-rolepick="${s.id}"><option value="teacher" ${s.role==='teacher'?'selected':''}>Teacher</option><option value="admin" ${s.role==='admin'?'selected':''}>Admin</option></select></td>
+      <td>${s.id===CURRENT_UID ? "" : `<button class="btn-danger" data-removestaff="${s.id}">Remove</button>`}</td>
     </tr>`).join("");
   return `
     <div class="card">
+      <h2>Add a teacher</h2>
+      <p class="sub">Creates their login directly — no need to use Firebase Console. Give them the email and password you set here.</p>
+      <div class="row">
+        <div><label>Full name</label><input id="nt_name"></div>
+        <div><label>Email</label><input id="nt_email" type="email"></div>
+      </div>
+      <label>Temporary password (share with them)</label><input id="nt_pass" type="text" placeholder="e.g. Welcome@2026">
+      <button class="btn-primary" id="addTeacherBtn">Add teacher</button>
+      <div id="addTeacherStatus" class="sub"></div>
+    </div>
+    <div class="card">
       <h2>Staff directory & roles</h2>
-      <p class="sub">Admins can permanently delete students, restore backups, and manage staff here. To add a new staff member, create their account in Firebase Console → Authentication → Add user — they'll appear here after their first sign-in. Changes save automatically.</p>
-      ${rows ? `<table><tr><th>Name</th><th>Email</th><th>Subject(s)</th><th>Assigned class</th><th>Role</th></tr>${rows}</table>` : `<div class="empty">No staff yet.</div>`}
+      <p class="sub">Changes save automatically. "Remove" deletes their profile here; to fully block their login, also delete their account in Firebase Console → Authentication → Users.</p>
+      ${rows ? `<table><tr><th>Name</th><th>Email</th><th>Subject(s)</th><th>Assigned class</th><th>Role</th><th></th></tr>${rows}</table>` : `<div class="empty">No staff yet.</div>`}
     </div>
   `;
+}
+
+function viewStaffAttendance(){
+  const rows = staffList.map(s=>{
+    const status = (s.attendance||{})[staffAttDate] || "unmarked";
+    return `<tr><td>${esc(s.name)}</td><td>${esc(s.email||"-")}</td><td>
+      <button class="btn-sm ${status==='present'?'chip-green':''}" data-staffatt="${s.id}|present">Present</button>
+      <button class="btn-sm ${status==='absent'?'chip-red':''}" data-staffatt="${s.id}|absent">Absent</button>
+      <button class="btn-sm ${status==='leave'?'chip-yellow':''}" data-staffatt="${s.id}|leave">C / Leave</button>
+    </td></tr>`;
+  }).join("");
+  return `
+    <div class="card"><label>Date</label><input type="date" id="staffAttDatePick" value="${staffAttDate}"></div>
+    <div class="card">
+      <h2>Mark staff attendance — ${staffAttDate}</h2>
+      ${rows ? `<table><tr><th>Name</th><th>Email</th><th>Status</th></tr>${rows}</table>` : `<div class="empty">No staff yet.</div>`}
+    </div>
+  `;
+}
+
+async function addTeacher(){
+  const name=document.getElementById("nt_name").value.trim();
+  const email=document.getElementById("nt_email").value.trim();
+  const pass=document.getElementById("nt_pass").value;
+  const status=document.getElementById("addTeacherStatus");
+  if(!name||!email||!pass) { status.textContent="Fill in all fields."; return; }
+  if(pass.length<6){ status.textContent="Password must be at least 6 characters."; return; }
+  status.textContent="Creating account…";
+  try{
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
+    await firestore.collection("staff").doc(cred.user.uid).set({ name, email, role:"teacher", createdAt:Date.now() });
+    await secondaryAuth.signOut();
+    status.textContent = `Added ${name}. Share this email and password with them to sign in.`;
+    logActivity("add", "staff", name);
+  }catch(e){
+    status.textContent = "Failed: " + e.message;
+  }
 }
 
 // ---------------- BACKUP ----------------
@@ -1210,6 +1273,19 @@ function wireTab(){
     });
   }
   if(tab==="staff"){
+    document.querySelectorAll("[data-staffsub]").forEach(el=>el.onclick=()=>{ staffSubTab=el.dataset.staffsub; renderTabs(); });
+    if(staffSubTab==="attendance"){
+      document.getElementById("staffAttDatePick").onchange = e=>{ staffAttDate=e.target.value; renderTabs(); };
+      document.querySelectorAll("[data-staffatt]").forEach(el=>el.onclick=async()=>{
+        const [id,status]=el.dataset.staffatt.split("|");
+        const st=staffList.find(x=>x.id===id);
+        const attendance={...(st.attendance||{}), [staffAttDate]:status};
+        await firestore.collection("staff").doc(id).update({attendance});
+        logActivity("update", "staff/"+id, "attendance="+status);
+      });
+      return;
+    }
+    document.getElementById("addTeacherBtn").onclick = addTeacher;
     document.querySelectorAll("[data-rolepick]").forEach(el=>el.onchange=async()=>{
       await firestore.collection("staff").doc(el.dataset.rolepick).update({role: el.value});
       logActivity("update", "staff/"+el.dataset.rolepick, "role="+el.value);
@@ -1222,6 +1298,12 @@ function wireTab(){
     });
     document.querySelectorAll("[data-classpick]").forEach(el=>el.onchange=async()=>{
       await firestore.collection("staff").doc(el.dataset.classpick).update({assignedClass: el.value});
+    });
+    document.querySelectorAll("[data-removestaff]").forEach(el=>el.onclick=async()=>{
+      const st=staffList.find(x=>x.id===el.dataset.removestaff);
+      if(!confirm(`Remove ${st?st.name:"this staff member"}'s profile? They won't appear in the directory, but you must also delete their account in Firebase Console → Authentication to fully block their login.`)) return;
+      await firestore.collection("staff").doc(el.dataset.removestaff).delete();
+      logActivity("delete", "staff/"+el.dataset.removestaff, "");
     });
   }
   if(tab==="backup"){
