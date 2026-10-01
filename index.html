@@ -55,7 +55,8 @@ label{display:block;font-size:11.5px;color:var(--sub);margin:9px 0 4px;}
 input,select,textarea{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:14px;font-family:var(--sans);}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
 textarea{resize:vertical;min-height:52px;}
-button{cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:13px;padding:10px 15px;font-family:var(--sans);transition:transform .08s ease;}
+button{cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:13px;padding:10px 15px;font-family:var(--sans);transition:transform .08s ease;min-height:36px;}
+@media (max-width:480px){ .tab{padding:9px 10px;font-size:12px;} .dashgrid .big{font-size:26px;} }
 button:active{transform:scale(.98);}
 .btn-primary{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;margin-top:10px;}
 .btn-accent2{background:linear-gradient(135deg,var(--gold),var(--gold-2));color:#2e2408;margin-top:10px;}
@@ -106,6 +107,9 @@ tr:nth-child(even) td{background:rgba(0,0,0,.015);}
 .loginwrap{max-width:340px;margin:60px auto 0;padding:0 16px;}
 .role-badge{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10px;font-weight:700;background:var(--gold);color:#2e2408;margin-left:5px;}
 
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:4px;}
+.table-wrap table{min-width:420px;}
+@media (min-width:860px){ .wrap{max-width:920px;} }
 .empty{color:var(--sub);font-size:13px;text-align:center;padding:18px 0;}
 .error{color:var(--brick);font-size:13px;}
 select{background:var(--card);}
@@ -447,9 +451,9 @@ function viewStudents(){
         <div><label>Filter by class</label><select id="stuClassFilter"><option value="">All classes</option>${classOptions(classFilter)}</select></div>
       </div>
       <h2>Roster (${list.length})</h2>
-      ${list.length ? `<table><tr><th>Roll</th><th>Name</th><th>Class</th><th>Guardian</th><th></th></tr>${rows}</table>` : `<div class="empty">No students in this view yet.</div>`}
+      ${list.length ? `<div class="table-wrap"><table><tr><th>Roll</th><th>Name</th><th>Class</th><th>Guardian</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No students in this view yet.</div>`}
     </div>
-    ${archived.length ? `<div class="card"><h2>Archived (${archived.length}) — not deleted, just hidden</h2><table><tr><th>Name</th><th>Class</th><th></th></tr>${archRows}</table></div>` : ""}
+    ${archived.length ? `<div class="card"><h2>Archived (${archived.length}) — not deleted, just hidden</h2><div class="table-wrap"><table><tr><th>Name</th><th>Class</th><th></th></tr>${archRows}</table></div></div>` : ""}
   `;
 }
 
@@ -486,7 +490,7 @@ function viewAttendance(){
     </div>
     <div class="card">
       <h2>Mark attendance — ${attDate}</h2>
-      ${list.length ? `<table><tr><th>Name</th><th>Class</th><th>Status</th></tr>${rows}</table>` : `<div class="empty">No students in this class yet.</div>`}
+      ${list.length ? `<div class="table-wrap"><table><tr><th>Name</th><th>Class</th><th>Status</th></tr>${rows}</table></div>` : `<div class="empty">No students in this class yet.</div>`}
     </div>
     <div class="card">
       <h2>Monthly attendance summary — ${attDate.slice(0,7)}</h2>
@@ -511,7 +515,7 @@ function monthlyAttendanceTable(list, monthKey){
     const flag = marked && pct<75 ? `<span class="chip-red">${pct}%</span>` : `<span class="chip-green">${pct}%</span>`;
     return `<tr><td>${esc(s.name)}</td><td>${esc(s.className||"-")}</td><td>${present}</td><td>${absent}</td><td>${leave}</td><td>${flag}</td></tr>`;
   }).join("");
-  return `<table><tr><th>Name</th><th>Class</th><th>Present</th><th>Absent</th><th>Leave</th><th>Attendance %</th></tr>${rows}</table><p class="sub">Below 75% is flagged red — days with no mark aren't counted.</p>`;
+  return `<div class="table-wrap"><table><tr><th>Name</th><th>Class</th><th>Present</th><th>Absent</th><th>Leave</th><th>Attendance %</th></tr>${rows}</table></div><p class="sub">Below 75% is flagged red — days with no mark aren't counted.</p>`;
 }
 
 // ---------------- GRADES ----------------
@@ -542,7 +546,7 @@ function viewGrades(){
     }).join("");
     body = `
       <div class="row"><div><label>Exam term</label><select id="termPick">${termOptions}</select></div></div>
-      <table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th><th></th></tr>${rows || `<tr><td colspan="5" class="empty">No grades recorded for this term yet.</td></tr>`}</table>
+      <div class="table-wrap"><table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th><th></th></tr>${rows || `<tr><td colspan="5" class="empty">No grades recorded for this term yet.</td></tr>`}</table></div>
       ${isLegacy ? `<p class="sub">These are grades entered before exam terms existed. Pick a term above to add new grades.</p>` : `
       <div class="row" style="margin-top:10px;">
         <div><label>Subject</label><input id="g_subject" placeholder="e.g. Math"></div>
@@ -613,7 +617,7 @@ function printReportCard(stu){
     }).join("");
     const termPct = sumTotal ? ((sumObtained/sumTotal)*100).toFixed(1)+"%" : "-";
     return `<h3 style="margin-top:20px;">${term}</h3>
-      <table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th></tr>${rows}</table>
+      <div class="table-wrap"><table><tr><th>Subject</th><th>Marks Obtained</th><th>Total Marks</th><th>Percentage</th></tr>${rows}</table></div>
       <div style="text-align:right;font-size:13px;margin-top:4px;">Term total: ${sumObtained}/${sumTotal} (${termPct})</div>`;
   }).join("");
   const grandPct = grandTotal ? ((grandObtained/grandTotal)*100).toFixed(1)+"%" : "-";
@@ -682,7 +686,7 @@ function printParentSummary(stu){
     <p><b>Name:</b> ${esc(stu.name)} &nbsp; <b>Class:</b> ${esc(stu.className||"-")} &nbsp; <b>Roll No:</b> ${esc(stu.rollNo||"-")}</p>
     <h3>Attendance this month</h3><p>${present}/${marked} days present (${attPct}%)</p>
     <h3>Latest grades — ${esc(latestTermKey)}</h3>
-    <table><tr><th>Subject</th><th>Obtained</th><th>Total</th><th>%</th></tr>${gradeRows || "<tr><td colspan=4>No grades recorded yet</td></tr>"}</table>
+    <div class="table-wrap"><table><tr><th>Subject</th><th>Obtained</th><th>Total</th><th>%</th></tr>${gradeRows || "<tr><td colspan=4>No grades recorded yet</td></tr>"}</table></div>
     <h3>Fine status</h3><p>${f.amount>0 ? (f.paid?`Cleared (Rs. ${f.amount} — ${esc(f.reason||"")})`:`Outstanding: Rs. ${f.amount} — ${esc(f.reason||"")}`) : "No fine on record"}</p>
     <h3>Recent homework (${esc(stu.className||"-")})</h3><ul>${hwList}</ul>
     <h3>Latest school notice</h3><p>${latestNotice ? `<b>${esc(latestNotice.title)}:</b> ${esc(latestNotice.message)}` : "None"}</p>
@@ -725,7 +729,7 @@ function viewFine(){
     <div class="card">
       <h2>Fine register</h2>
       <p class="sub">For discipline or damages, not tuition (government school — no fees charged).</p>
-      ${list.length ? `<table><tr><th>Name</th><th>Class</th><th>Amount</th><th>Reason</th><th>Status</th><th></th></tr>${rows}</table>` : `<div class="empty">No students in this view yet.</div>`}
+      ${list.length ? `<div class="table-wrap"><table><tr><th>Name</th><th>Class</th><th>Amount</th><th>Reason</th><th>Status</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No students in this view yet.</div>`}
     </div>
   `;
 }
@@ -816,7 +820,7 @@ function viewTimetable(){
   }).join("")}</tr>`).join("");
   return `
     <div class="card"><div class="row"><div><label>Class</label><select id="ttClassPick">${classOptions(cls)}</select></div></div></div>
-    <div class="card"><h2>Weekly timetable — ${cls}</h2><table class="timetable">${head}${body}</table><p class="sub">Edits save automatically as you type — no need to press Save.</p></div>
+    <div class="card"><h2>Weekly timetable — ${cls}</h2><div class="table-wrap"><table class="timetable">${head}${body}</table></div><p class="sub">Edits save automatically as you type — no need to press Save.</p></div>
   `;
 }
 
@@ -834,7 +838,7 @@ function viewActivity(){
   return `
     <div class="card"><h2>Staff activity</h2>${userCards || `<div class="empty">No activity yet.</div>`}</div>
     <div class="card"><h2>Recent changes (${activityLog.length} total logged)</h2>
-      ${rows ? `<table><tr><th>When</th><th>Who</th><th>Action</th><th>Where</th><th>Detail</th></tr>${rows}</table>` : `<div class="empty">Nothing logged yet.</div>`}
+      ${rows ? `<div class="table-wrap"><table><tr><th>When</th><th>Who</th><th>Action</th><th>Where</th><th>Detail</th></tr>${rows}</table></div>` : `<div class="empty">Nothing logged yet.</div>`}
     </div>
   `;
 }
@@ -872,7 +876,7 @@ function viewStaffProfile(){
     <div class="card">
       <h2>Staff directory & roles</h2>
       <p class="sub">Changes save automatically. "Remove" deletes their profile here; to fully block their login, also delete their account in Firebase Console → Authentication → Users.</p>
-      ${rows ? `<table><tr><th>Name</th><th>Email</th><th>Subject(s)</th><th>Assigned class</th><th>Role</th><th></th></tr>${rows}</table>` : `<div class="empty">No staff yet.</div>`}
+      ${rows ? `<div class="table-wrap"><table><tr><th>Name</th><th>Email</th><th>Subject(s)</th><th>Assigned class</th><th>Role</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No staff yet.</div>`}
     </div>
   `;
 }
@@ -890,7 +894,7 @@ function viewStaffAttendance(){
     <div class="card"><label>Date</label><input type="date" id="staffAttDatePick" value="${staffAttDate}"></div>
     <div class="card">
       <h2>Mark staff attendance — ${staffAttDate}</h2>
-      ${rows ? `<table><tr><th>Name</th><th>Email</th><th>Status</th></tr>${rows}</table>` : `<div class="empty">No staff yet.</div>`}
+      ${rows ? `<div class="table-wrap"><table><tr><th>Name</th><th>Email</th><th>Status</th></tr>${rows}</table></div>` : `<div class="empty">No staff yet.</div>`}
     </div>
   `;
 }
