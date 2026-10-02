@@ -1,4 +1,4 @@
-const CACHE = "gps-khankot-lms-v10";
+const CACHE = "gps-khankot-lms-v11";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -13,6 +13,8 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
+// App shell: cache-first (so the app opens with no network).
+// Firebase/Firestore requests are left alone — Firestore has its own offline cache.
 self.addEventListener("fetch", (e) => {
   const url = e.request.url;
   if (url.includes("firestore.googleapis.com") || url.includes("googleapis.com")) return;
