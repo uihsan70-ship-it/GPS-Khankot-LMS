@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --navy:#16234A; --navy-2:#213363; --gold:#C99A3E; --gold-2:#B6842A; --gold-soft:#E9D19B; --crest:#16234A; --masthead-tag:#E9D19B;
@@ -288,7 +289,7 @@ firebase.auth().onAuthStateChanged(async (user)=>{
   }
   const sd = staffSnap.data();
   CURRENT_USER = sd.name || user.email || "Staff";
-  CURRENT_ROLE = sd.role || "teacher";
+  CURRENT_ROLE = (sd.role || "teacher").trim().toLowerCase();
   document.getElementById("userLabel").textContent = CURRENT_USER;
   document.getElementById("roleBadge").textContent = CURRENT_ROLE;
   document.getElementById("namebar").style.display="flex";
@@ -922,10 +923,10 @@ async function addTeacher(){
 function viewBackup(){
   return `
     <div class="card">
-      <h2>Bulk import students (CSV)</h2>
-      <p class="sub">Upload a CSV with header row: Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact. Class must exactly match one of: ${CLASS_LIST.join(", ")}.</p>
+      <h2>Bulk import students (CSV or Excel)</h2>
+      <p class="sub">Upload a .csv or .xlsx file with header row: Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact. Class must exactly match one of: ${CLASS_LIST.join(", ")}.</p>
       <button class="btn-sm" id="downloadTemplateBtn">Download CSV template</button>
-      <input type="file" id="importFile" accept=".csv" style="margin-top:10px;">
+      <input type="file" id="importFile" accept=".csv,.xlsx,.xls" style="margin-top:10px;">
       <button class="btn-accent2" id="importBtn" style="margin-top:8px;">Import students</button>
       <div id="importStatus" class="sub"></div>
     </div>
@@ -960,13 +961,25 @@ function parseCsv(text){
   return lines.map(l=>l.split(",").map(c=>c.trim().replace(/^"|"$/g,"")));
 }
 
+async function readRowsFromFile(file){
+  const ext = file.name.split(".").pop().toLowerCase();
+  if(ext==="csv"){
+    const text = await file.text();
+    return parseCsv(text);
+  }
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:"array"});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:"", raw:false});
+  return rows.filter(r=>r.length && r.some(c=>String(c).trim()!=="")).map(r=>r.map(c=>String(c).trim()));
+}
+
 async function importStudentsCsv(){
   const fileInput = document.getElementById("importFile");
   const status = document.getElementById("importStatus");
   const file = fileInput.files[0];
-  if(!file){ status.textContent = "Choose a CSV file first."; return; }
-  const text = await file.text();
-  const rows = parseCsv(text);
+  if(!file){ status.textContent = "Choose a CSV or Excel file first."; return; }
+  const rows = await readRowsFromFile(file);
   const header = rows[0].map(h=>h.toLowerCase());
   const idx = (name)=>header.indexOf(name.toLowerCase());
   const iName=idx("name"), iClass=idx("class"), iGuardian=idx("guardiancontact"), iRoll=idx("rollno"), iAdm=idx("admissionno"), iDob=idx("dob"), iBlood=idx("bloodgroup"), iEmerg=idx("emergencycontact");
