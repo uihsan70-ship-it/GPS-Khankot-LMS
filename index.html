@@ -936,6 +936,11 @@ function viewBackup(){
       <button class="btn-accent2" id="seedDemoBtn">Load demo data</button>
     </div>
     <div class="card">
+      <h2>Remove demo data</h2>
+      <p class="sub">Deletes only the 8 sample students, 3 sample homework posts, and 2 sample notices created by "Load demo data" above — matched precisely, so your real students are never touched. Permanent, not an archive.</p>
+      <button class="btn-danger" id="removeDemoBtn">Remove demo data</button>
+    </div>
+    <div class="card">
       <h2>Download backups</h2>
       <button class="btn-primary" id="downloadBackupBtn">Download full backup (.json)</button>
       <button class="btn-primary" id="downloadCsvBtn">Download roster (.csv)</button>
@@ -1009,6 +1014,43 @@ function downloadCsvTemplate(){
   const header = "Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact\n";
   const sample = `Ahmed Ali,Class 1,0300-0000000,21,GPS-2026-021,2019-05-14,O+,0300-1111111\n`;
   downloadBlob(header+sample, "text/csv", "gps-khankot-import-template.csv");
+}
+
+async function removeDemoData(){
+  const btn = document.getElementById("removeDemoBtn");
+  if(!confirm("Permanently delete the demo students, demo homework, and demo notices? Your real students and real data are matched precisely and will NOT be touched.")) return;
+  btn.textContent = "Removing…";
+  const demoPairs = [
+    ["Ayesha Khan","0300-1234567"],["Bilal Ahmed","0301-2345678"],["Sara Malik","0302-3456789"],
+    ["Hamza Iqbal","0303-4567890"],["Zainab Tariq","0304-5678901"],["Ali Raza","0305-6789012"],
+    ["Fatima Noor","0306-7890123"],["Usman Sheikh","0307-8901234"]
+  ];
+  let removed=0;
+  for(const s of students){
+    if(demoPairs.some(([n,g])=>s.name===n && s.guardianContact===g)){
+      await firestore.collection("students").doc(s.id).delete();
+      removed++;
+    }
+  }
+  const demoHwDescriptions = [
+    "Complete worksheet pages 10-12",
+    "Write 10 sentences using new vocabulary words",
+    "Prepare a short presentation on the water cycle"
+  ];
+  for(const h of homework){
+    if(demoHwDescriptions.includes(h.description)){ await firestore.collection("homework").doc(h.id).delete(); }
+  }
+  const demoNoticeTitles = ["Parent-Teacher meeting","School closed for holiday"];
+  for(const n of notices){
+    if(demoNoticeTitles.includes(n.title)){ await firestore.collection("notices").doc(n.id).delete(); }
+  }
+  const demoCells = {"Class 1_Mon_1":"Math","Class 1_Mon_2":"English","Class 1_Tue_1":"Science"};
+  const grid = {...(ttDoc.grid||{})};
+  let gridChanged=false;
+  Object.keys(demoCells).forEach(k=>{ if(grid[k]===demoCells[k]){ delete grid[k]; gridChanged=true; } });
+  if(gridChanged) await firestore.doc("timetable/main").set({grid});
+  logActivity("delete", "demo-data", `Removed ${removed} demo students`);
+  btn.textContent = `Removed ${removed} demo student(s) and related demo entries.`;
 }
 
 async function seedDemoData(){
@@ -1327,6 +1369,7 @@ function wireTab(){
     document.getElementById("downloadTemplateBtn").onclick = downloadCsvTemplate;
     document.getElementById("importBtn").onclick = importStudentsCsv;
     document.getElementById("seedDemoBtn").onclick = seedDemoData;
+    document.getElementById("removeDemoBtn").onclick = removeDemoData;
     document.getElementById("downloadBackupBtn").onclick = downloadFullBackup;
     document.getElementById("downloadCsvBtn").onclick = downloadRosterCsv;
     const restoreBtn = document.getElementById("restoreBtn");
