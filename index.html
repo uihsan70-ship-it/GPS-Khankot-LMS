@@ -99,6 +99,9 @@ tr:nth-child(even) td{background:rgba(0,0,0,.015);}
 .subtabs{display:flex;gap:6px;margin-bottom:12px;}
 .subtab{padding:6px 12px;border-radius:20px;background:var(--bg);border:1px solid var(--line);color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;}
 .subtab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.classbtns{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;}
+.classbtn{flex:0 0 auto;padding:7px 13px;border-radius:20px;background:var(--bg);border:1px solid var(--line);color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.classbtn.active{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;border-color:var(--navy);}
 
 .dashgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
 .dashcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;text-align:center;}
@@ -712,6 +715,11 @@ function shareParentSummaryWhatsApp(stu){
 }
 
 // ---------------- FINE (replaces Fees — government institution) ----------------
+function classButtonsHtml(){
+  const chips = [["","All classes"], ...CLASS_LIST.map(c=>[c,c])];
+  return `<div class="classbtns">${chips.map(([val,label])=>`<div class="classbtn ${classFilter===val?'active':''}" data-classbtn="${val}">${label}</div>`).join("")}</div>`;
+}
+
 function viewFine(){
   const list = classFilter ? students.filter(s=>s.className===classFilter) : students;
   const rows = list.map(s=>{
@@ -726,9 +734,9 @@ function viewFine(){
     </tr>`;
   }).join("");
   return `
-    <div class="card"><div class="row"><div><label>Class</label><select id="fineClassPick"><option value="">All classes</option>${classOptions(classFilter)}</select></div></div></div>
+    <div class="card">${classButtonsHtml()}</div>
     <div class="card">
-      <h2>Fine register</h2>
+      <h2>Fine register ${classFilter?`— ${esc(classFilter)}`:""}</h2>
       <p class="sub">For discipline or damages, not tuition (government school — no fees charged).</p>
       ${list.length ? `<div class="table-wrap"><table><tr><th>Name</th><th>Class</th><th>Amount</th><th>Reason</th><th>Status</th><th></th></tr>${rows}</table></div>` : `<div class="empty">No students in this view yet.</div>`}
     </div>
@@ -1280,7 +1288,7 @@ function wireTab(){
     if(parentWaBtn) parentWaBtn.onclick=()=>{ const stu=students.find(s=>s.id===selectedStudent); if(stu) shareParentSummaryWhatsApp(stu); };
   }
   if(tab==="fine"){
-    document.getElementById("fineClassPick").onchange = e=>{ classFilter=e.target.value; renderTabs(); };
+    document.querySelectorAll("[data-classbtn]").forEach(el=>el.onclick=()=>{ classFilter=el.dataset.classbtn; renderTabs(); });
     document.querySelectorAll("[data-fineamt]").forEach(el=>el.onchange=async()=>{
       const stu=students.find(s=>s.id===el.dataset.fineamt);
       const fine={...(stu.fine||{}), amount:parseFloat(el.value)||0};
