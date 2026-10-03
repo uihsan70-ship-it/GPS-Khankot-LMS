@@ -936,6 +936,12 @@ function viewBackup(){
       <button class="btn-accent2" id="seedDemoBtn">Load demo data</button>
     </div>
     <div class="card">
+      <h2>Find & remove duplicate students</h2>
+      <p class="sub">Finds students with the same name, class, and roll number (e.g. from importing the same file twice) and removes the extra copies, keeping one of each.</p>
+      <button class="btn-danger" id="dedupeBtn">Find & remove duplicates</button>
+      <div id="dedupeStatus" class="sub"></div>
+    </div>
+    <div class="card">
       <h2>Remove demo data</h2>
       <p class="sub">Deletes only the 8 sample students, 3 sample homework posts, and 2 sample notices created by "Load demo data" above — matched precisely, so your real students are never touched. Permanent, not an archive.</p>
       <button class="btn-danger" id="removeDemoBtn">Remove demo data</button>
@@ -989,12 +995,17 @@ async function importStudentsCsv(){
   const idx = (name)=>header.indexOf(name.toLowerCase());
   const iName=idx("name"), iClass=idx("class"), iGuardian=idx("guardiancontact"), iRoll=idx("rollno"), iAdm=idx("admissionno"), iDob=idx("dob"), iBlood=idx("bloodgroup"), iEmerg=idx("emergencycontact");
   if(iName<0 || iClass<0){ status.textContent = "CSV must have at least Name and Class columns."; return; }
-  let count=0, skipped=0;
+  const existingKeys = new Set(students.filter(s=>!s.archived).map(dupeKey));
+  let count=0, skipped=0, duplicates=0;
   status.textContent = "Importing…";
   for(let i=1;i<rows.length;i++){
     const r = rows[i];
     const name = r[iName]; const className = r[iClass];
     if(!name || !CLASS_LIST.includes(className)){ skipped++; continue; }
+    const rollNo = iRoll>=0 ? (r[iRoll]||"") : "";
+    const key = name.trim().toLowerCase()+"|"+className+"|"+rollNo.trim();
+    if(existingKeys.has(key)){ duplicates++; continue; }
+    existingKeys.add(key);
     await db.collection("students").add({
       name, className,
       guardianContact: iGuardian>=0 ? (r[iGuardian]||"") : "",
@@ -1007,13 +1018,37 @@ async function importStudentsCsv(){
     });
     count++;
   }
-  status.textContent = `Imported ${count} student(s)` + (skipped ? `, skipped ${skipped} row(s) with missing name or an unrecognized class name.` : ".");
+  let msg = `Imported ${count} student(s)`;
+  if(duplicates) msg += `, skipped ${duplicates} already-existing duplicate(s)`;
+  if(skipped) msg += `, skipped ${skipped} row(s) with missing name or an unrecognized class name`;
+  status.textContent = msg + ".";
 }
 
 function downloadCsvTemplate(){
   const header = "Name,Class,GuardianContact,RollNo,AdmissionNo,DOB,BloodGroup,EmergencyContact\n";
   const sample = `Ahmed Ali,Class 1,0300-0000000,21,GPS-2026-021,2019-05-14,O+,0300-1111111\n`;
   downloadBlob(header+sample, "text/csv", "gps-khankot-import-template.csv");
+}
+
+function dupeKey(s){
+  return (s.name||"").trim().toLowerCase()+"|"+(s.className||"")+"|"+(s.rollNo||"").trim();
+}
+
+async function findAndRemoveDuplicates(){
+  const status = document.getElementById("dedupeStatus");
+  const groups = {};
+  students.filter(s=>!s.archived).forEach(s=>{
+    const k = dupeKey(s);
+    (groups[k] = groups[k]||[]).push(s);
+  });
+  const dupeGroups = Object.values(groups).filter(g=>g.length>1);
+  const toRemove = dupeGroups.flatMap(g=>g.slice(1));
+  if(!toRemove.length){ status.textContent = "No duplicates found."; return; }
+  if(!confirm(`Found ${toRemove.length} duplicate record(s) across ${dupeGroups.length} student(s). Remove the extra copies? This keeps one copy of each and permanently deletes the rest.`)) return;
+  status.textContent = "Removing…";
+  for(const s of toRemove){ await firestore.collection("students").doc(s.id).delete(); }
+  logActivity("delete", "duplicates", `Removed ${toRemove.length} duplicate students`);
+  status.textContent = `Removed ${toRemove.length} duplicate record(s).`;
 }
 
 async function removeDemoData(){
@@ -1370,6 +1405,7 @@ function wireTab(){
     document.getElementById("importBtn").onclick = importStudentsCsv;
     document.getElementById("seedDemoBtn").onclick = seedDemoData;
     document.getElementById("removeDemoBtn").onclick = removeDemoData;
+    document.getElementById("dedupeBtn").onclick = findAndRemoveDuplicates;
     document.getElementById("downloadBackupBtn").onclick = downloadFullBackup;
     document.getElementById("downloadCsvBtn").onclick = downloadRosterCsv;
     const restoreBtn = document.getElementById("restoreBtn");
